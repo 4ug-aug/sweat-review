@@ -1,0 +1,27 @@
+services:
+  backend:
+    build: ./backend
+
+  frontend:
+    build: ./frontend
+
+  nginx:
+    build: ./nginx
+    ports:
+      - "8000:80"
+    depends_on:
+      - backend
+      - frontend
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+
+  celery:
+    build: ./backend
+    command: echo "celery worker placeholder"
+    depends_on:
+      - postgres

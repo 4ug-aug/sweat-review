@@ -1,0 +1,15 @@
+services:
+  nginx:
+    ports: !override []
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pr-{{ pr_number }}.rule=Host(`pr{{ pr_number }}.{{ vps_ip }}.nip.io`)"
+      - "traefik.http.routers.pr-{{ pr_number }}.entrypoints=web"
+      - "traefik.http.services.pr-{{ pr_number }}.loadbalancer.server.port=80"
+    networks:
+      - default
+      - traefik-public
+
+networks:
+  traefik-public:
+    external: true

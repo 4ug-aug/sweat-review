@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preview App</title>
+</head>
+<body>
+    <h1>Preview Environment</h1>
+    <p id="message">Loading...</p>
+    <script>
+        fetch("/api/hello")
+            .then(r => r.json())
+            .then(data => document.getElementById("message").textContent = data.message)
+            .catch(() => document.getElementById("message").textContent = "Failed to load");
+    </script>
+</body>
+</html>
