@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     poll_interval: int = Field(default=30, gt=0)
     db_path: Path = Path("preview_agent.db")
     compose_file: str = "docker-compose.yml"
+    target_env_file: Path | None = None
     template_path: Path = Path("templates/docker-compose.override.yml.j2")
 
     @field_validator("github_repo")
@@ -34,6 +35,13 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"template_path does not exist: {self.template_path}"
             )
+        if self.target_env_file is not None:
+            resolved = self.target_env_file.resolve()
+            object.__setattr__(self, "target_env_file", resolved)
+            if not resolved.exists():
+                raise ValueError(
+                    f"target_env_file does not exist: {resolved}"
+                )
         return self
 
 

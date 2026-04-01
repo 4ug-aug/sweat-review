@@ -160,6 +160,10 @@ class Orchestrator:
                 if returncode != 0:
                     raise RuntimeError(f"git clone failed: {stderr}")
 
+                # Copy target env file if configured
+                if self._settings.target_env_file:
+                    shutil.copy2(self._settings.target_env_file, clone_dir / ".env")
+
                 # Render override
                 self._compose.write_override(clone_dir, pr_number, self._settings.vps_ip, self._settings.compose_file)
 
@@ -290,6 +294,10 @@ class Orchestrator:
                 )
                 if returncode != 0:
                     raise RuntimeError(f"git reset failed: {stderr}")
+
+                # Copy target env file if configured
+                if self._settings.target_env_file:
+                    shutil.copy2(self._settings.target_env_file, clone_dir / ".env")
 
                 # Re-render override and rebuild
                 self._compose.write_override(clone_dir, pr_number, self._settings.vps_ip, self._settings.compose_file)
