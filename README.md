@@ -95,7 +95,25 @@ That's the minimum. Full list of settings:
 | `STALE_TIMEOUT_HOURS` | Hours before a deployment is considered stale | `48` |
 | `DB_PATH` | Path to the SQLite state database | `preview_agent.db` |
 | `COMPOSE_FILE` | Name of the Compose file in the target repo | `docker-compose.yml` |
+| `TARGET_ENV_FILE` | Path to an env file to copy into each preview environment | (optional) |
 | `TEMPLATE_PATH` | Path to the Jinja2 override template | `templates/docker-compose.override.yml.j2` |
+
+### Environment variables for the target project
+
+If your target project needs a `.env` file (e.g. database credentials, API keys),
+you can't commit it to the repo. Instead, store it on the machine running the
+agent and point to it:
+
+```bash
+# In your preview-agent .env:
+TARGET_ENV_FILE=/path/to/my-project.env
+```
+
+The agent copies this file as `.env` into each PR's clone directory before
+running `docker compose up`. It's refreshed on every update too, so changes
+to the file take effect on the next PR push.
+
+If `TARGET_ENV_FILE` is not set, the agent skips this step.
 
 ### GitHub token setup
 
