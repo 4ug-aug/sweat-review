@@ -72,9 +72,24 @@ def create_app() -> FastAPI:
 
 
 def cli() -> None:
+    import sys
+    from pydantic import ValidationError
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
+
+    try:
+        get_settings()
+    except ValidationError as exc:
+        print("Configuration error:\n", file=sys.stderr)
+        for err in exc.errors():
+            field = err["loc"][0]
+            msg = err["msg"]
+            print(f"  {field}: {msg}", file=sys.stderr)
+        print("\nCheck your .env file or environment variables.", file=sys.stderr)
+        sys.exit(1)
+
     app = create_app()
     uvicorn.run(app, host="0.0.0.0", port=8000)

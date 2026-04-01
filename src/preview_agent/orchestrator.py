@@ -6,7 +6,7 @@ import logging
 import shutil
 from pathlib import Path
 
-from preview_agent.compose import ComposeRenderer
+from preview_agent.compose import ComposeRenderer, ComposeValidationError
 from preview_agent.config import Settings
 from preview_agent.github_client import GitHubClient
 from preview_agent.resources import InsufficientResourcesError, check_resources
@@ -161,7 +161,7 @@ class Orchestrator:
                     raise RuntimeError(f"git clone failed: {stderr}")
 
                 # Render override
-                self._compose.write_override(clone_dir, pr_number, self._settings.vps_ip)
+                self._compose.write_override(clone_dir, pr_number, self._settings.vps_ip, self._settings.compose_file)
 
                 # Build and start
                 await self._state.upsert(
@@ -292,7 +292,7 @@ class Orchestrator:
                     raise RuntimeError(f"git reset failed: {stderr}")
 
                 # Re-render override and rebuild
-                self._compose.write_override(clone_dir, pr_number, self._settings.vps_ip)
+                self._compose.write_override(clone_dir, pr_number, self._settings.vps_ip, self._settings.compose_file)
 
                 compose_file = self._settings.compose_file
                 returncode, stdout, stderr = await run_subprocess(

@@ -55,7 +55,7 @@ locally on your machine.
 - **Docker** and **Docker Compose** installed
 - **Python 3.12+**
 - **[uv](https://docs.astral.sh/uv/)**
-- A **GitHub personal access token** with `repo` scope
+- A **GitHub personal access token** (see [Token setup](#github-token-setup) below)
 
 ## Setup
 
@@ -77,7 +77,7 @@ cp .env.example .env
 Edit `.env`:
 
 ```bash
-GITHUB_TOKEN=ghp_your_token_here    # GitHub PAT with repo scope
+GITHUB_TOKEN=ghp_your_token_here    # See "GitHub token setup" below
 GITHUB_REPO=your-org/your-repo      # The repo to monitor
 VPS_IP=127.0.0.1                    # Your machine's IP (127.0.0.1 for local)
 ```
@@ -96,6 +96,29 @@ That's the minimum. Full list of settings:
 | `DB_PATH` | Path to the SQLite state database | `preview_agent.db` |
 | `COMPOSE_FILE` | Name of the Compose file in the target repo | `docker-compose.yml` |
 | `TEMPLATE_PATH` | Path to the Jinja2 override template | `templates/docker-compose.override.yml.j2` |
+
+### GitHub token setup
+
+The agent needs a GitHub token to poll for PRs, clone repos, and post comments.
+You can use either a **fine-grained personal access token** (recommended) or a
+classic token.
+
+**Fine-grained token** (recommended) — go to
+**Settings > Developer settings > Personal access tokens > Fine-grained tokens**:
+
+| Permission | Access | Used for |
+|------------|--------|----------|
+| **Contents** | Read | Cloning the PR branch |
+| **Pull requests** | Read | Polling for open PRs and checking PR state |
+| **Issues** | Write | Posting and updating preview URL comments (GitHub serves PR comments via the Issues API) |
+
+Set **Repository access** to "Only select repositories" and pick your target repo.
+
+**Classic token** — go to
+**Settings > Developer settings > Personal access tokens > Tokens (classic)**:
+
+Select the `repo` scope (grants full access to private repos — less granular
+than fine-grained tokens).
 
 ### 3. Start Traefik
 

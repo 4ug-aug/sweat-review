@@ -21,7 +21,7 @@ def check_disk_space(path: Path) -> None:
     free_gb = usage.free / (1024**3)
     free_percent = (usage.free / usage.total) * 100
 
-    if free_gb < MIN_DISK_FREE_GB or free_percent < MIN_DISK_FREE_PERCENT:
+    if free_gb < MIN_DISK_FREE_GB and free_percent < MIN_DISK_FREE_PERCENT:
         raise InsufficientResourcesError(
             f"Low disk space: {free_gb:.1f} GB free ({free_percent:.1f}%). "
             f"Need at least {MIN_DISK_FREE_GB} GB or {MIN_DISK_FREE_PERCENT}%."

@@ -42,12 +42,19 @@ def test_check_disk_space_fails_low_gb(tmp_path: Path) -> None:
             check_disk_space(tmp_path)
 
 
-def test_check_disk_space_fails_low_percent(tmp_path: Path) -> None:
+def test_check_disk_space_fails_both_low(tmp_path: Path) -> None:
     with patch("preview_agent.resources.shutil.disk_usage") as mock:
-        # 5 GB free out of 100 GB = 5%
-        mock.return_value = _fake_disk_usage(free_gb=5.0, total_gb=100.0)
+        # 0.5 GB free out of 10 GB = 5% — both thresholds breached
+        mock.return_value = _fake_disk_usage(free_gb=0.5, total_gb=10.0)
         with pytest.raises(InsufficientResourcesError, match="Low disk space"):
             check_disk_space(tmp_path)
+
+
+def test_check_disk_space_passes_low_percent_high_gb(tmp_path: Path) -> None:
+    with patch("preview_agent.resources.shutil.disk_usage") as mock:
+        # 14.5 GB free out of 500 GB = 2.9% — low percent but plenty of GB
+        mock.return_value = _fake_disk_usage(free_gb=14.5, total_gb=500.0)
+        check_disk_space(tmp_path)  # Should not raise
 
 
 def test_check_memory_skips_on_macos() -> None:
