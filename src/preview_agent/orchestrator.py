@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import shutil
 from pathlib import Path
@@ -8,12 +9,53 @@ from pathlib import Path
 from preview_agent.compose import ComposeRenderer
 from preview_agent.config import Settings
 from preview_agent.github_client import GitHubClient
+from preview_agent.resources import InsufficientResourcesError, check_resources
 from preview_agent.state import DeploymentStatus, StateStore
 
 logger = logging.getLogger(__name__)
 
 DEPLOY_TIMEOUT = 300  # 5 minutes
 TEARDOWN_TIMEOUT = 120  # 2 minutes
+HEALTH_CHECK_DELAY = 10  # seconds before first check
+HEALTH_CHECK_RETRIES = 3
+HEALTH_CHECK_INTERVAL = 5  # seconds between retries
+
+IN_PROGRESS_STATUSES = (
+    DeploymentStatus.PENDING,
+    DeploymentStatus.CLONING,
+    DeploymentStatus.BUILDING,
+    DeploymentStatus.RUNNING,
+)
+
+
+async def run_subprocess(
+    cmd: list[str],
+    cwd: Path,
+    timeout: float = 60,
+) -> tuple[int, str, str]:
+    logger.debug("Running: %s in %s", " ".join(cmd), cwd)
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        cwd=str(cwd),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        stdout_bytes, stderr_bytes = await asyncio.wait_for(
+            proc.communicate(), timeout=timeout
+        )
+    except asyncio.TimeoutError:
+        proc.kill()
+        await proc.communicate()
+        return 1, "", f"Command timed out after {timeout}s"
+
+    stdout = stdout_bytes.decode(errors="replace")
+    stderr = stderr_bytes.decode(errors="replace")
+    logger.debug(
+        "Exit %d | stdout: %s | stderr: %s",
+        proc.returncode, stdout[:200], stderr[:200],
+    )
+    return proc.returncode or 0, stdout, stderr
 
 
 class Orchestrator:
@@ -28,7 +70,6 @@ class Orchestrator:
         self._state = state
         self._compose = compose
         self._github = github
-        self._semaphore = asyncio.Semaphore(settings.max_concurrent)
         self._pr_locks: dict[int, asyncio.Lock] = {}
 
     def _get_pr_lock(self, pr_number: int) -> asyncio.Lock:
@@ -53,21 +94,40 @@ class Orchestrator:
         self, pr_number: int, branch: str, commit_sha: str
     ) -> None:
         async with self._get_pr_lock(pr_number):
+            # Resource check
+            try:
+                check_resources(self._settings.clone_base_dir)
+            except InsufficientResourcesError as exc:
+                await self._state.upsert(
+                    pr_number, branch, commit_sha, DeploymentStatus.FAILED,
+                    error_message=str(exc),
+                )
+                await self._github.create_or_update_comment(
+                    pr_number,
+                    f"Cannot deploy — insufficient resources:\n```\n{exc}\n```",
+                )
+                logger.error("PR #%d deploy blocked: %s", pr_number, exc)
+                return
+
             # Check concurrency
             active = await self._state.get_active()
             running_count = len(
-                [d for d in active if d.status == DeploymentStatus.RUNNING]
+                [d for d in active
+                 if d.status in IN_PROGRESS_STATUSES
+                 and d.pr_number != pr_number]
             )
             if running_count >= self._settings.max_concurrent:
+                queued = [d for d in active if d.status == DeploymentStatus.QUEUED]
+                position = len(queued) + 1
                 await self._state.upsert(
                     pr_number, branch, commit_sha, DeploymentStatus.QUEUED
                 )
                 await self._github.create_or_update_comment(
                     pr_number,
-                    "Preview queued — max concurrency reached. "
+                    f"Preview queued (position #{position}) — max concurrency reached. "
                     "It will deploy when a slot opens up.",
                 )
-                logger.warning("PR #%d queued — at max concurrency", pr_number)
+                logger.warning("PR #%d queued at position %d", pr_number, position)
                 return
 
             url = self._preview_url(pr_number)
@@ -89,7 +149,7 @@ class Orchestrator:
                 if clone_dir.exists():
                     shutil.rmtree(clone_dir)
 
-                returncode, stdout, stderr = await self._run(
+                returncode, stdout, stderr = await run_subprocess(
                     [
                         "git", "clone", "--depth", "1",
                         "--branch", branch,
@@ -108,7 +168,7 @@ class Orchestrator:
                     pr_number, branch, commit_sha, DeploymentStatus.BUILDING
                 )
                 compose_file = self._settings.compose_file
-                returncode, stdout, stderr = await self._run(
+                returncode, stdout, stderr = await run_subprocess(
                     [
                         "docker", "compose",
                         "-p", f"pr-{pr_number}",
@@ -121,6 +181,11 @@ class Orchestrator:
                 )
                 if returncode != 0:
                     raise RuntimeError(f"docker compose up failed: {stderr}")
+
+                # Health check
+                healthy = await self._check_container_health(pr_number, clone_dir)
+                if not healthy:
+                    raise RuntimeError("Container health check failed after retries")
 
                 # Success
                 await self._state.upsert(
@@ -153,7 +218,7 @@ class Orchestrator:
                     pr_number, "", "", DeploymentStatus.DESTROYING
                 )
 
-                returncode, stdout, stderr = await self._run(
+                returncode, stdout, stderr = await run_subprocess(
                     [
                         "docker", "compose",
                         "-p", f"pr-{pr_number}",
@@ -187,9 +252,23 @@ class Orchestrator:
 
             if not clone_dir.exists():
                 logger.info("PR #%d clone dir missing, doing full deploy", pr_number)
-            # Release lock and do full deploy if no clone dir
             if not clone_dir.exists():
                 await self.deploy(pr_number, branch, commit_sha)
+                return
+
+            # Resource check
+            try:
+                check_resources(self._settings.clone_base_dir)
+            except InsufficientResourcesError as exc:
+                await self._state.upsert(
+                    pr_number, branch, commit_sha, DeploymentStatus.FAILED,
+                    error_message=str(exc),
+                )
+                await self._github.create_or_update_comment(
+                    pr_number,
+                    f"Cannot update — insufficient resources:\n```\n{exc}\n```",
+                )
+                logger.error("PR #%d update blocked: %s", pr_number, exc)
                 return
 
             try:
@@ -198,14 +277,14 @@ class Orchestrator:
                 )
 
                 # Pull latest
-                returncode, stdout, stderr = await self._run(
+                returncode, stdout, stderr = await run_subprocess(
                     ["git", "fetch", "origin", branch],
                     cwd=clone_dir,
                 )
                 if returncode != 0:
                     raise RuntimeError(f"git fetch failed: {stderr}")
 
-                returncode, stdout, stderr = await self._run(
+                returncode, stdout, stderr = await run_subprocess(
                     ["git", "reset", "--hard", f"origin/{branch}"],
                     cwd=clone_dir,
                 )
@@ -216,7 +295,7 @@ class Orchestrator:
                 self._compose.write_override(clone_dir, pr_number, self._settings.vps_ip)
 
                 compose_file = self._settings.compose_file
-                returncode, stdout, stderr = await self._run(
+                returncode, stdout, stderr = await run_subprocess(
                     [
                         "docker", "compose",
                         "-p", f"pr-{pr_number}",
@@ -229,6 +308,11 @@ class Orchestrator:
                 )
                 if returncode != 0:
                     raise RuntimeError(f"docker compose up failed: {stderr}")
+
+                # Health check
+                healthy = await self._check_container_health(pr_number, clone_dir)
+                if not healthy:
+                    raise RuntimeError("Container health check failed after retries")
 
                 url = self._preview_url(pr_number)
                 await self._state.upsert(
@@ -253,38 +337,94 @@ class Orchestrator:
 
     async def _deploy_next_queued(self) -> None:
         active = await self._state.get_active()
+        running_count = len(
+            [d for d in active if d.status in IN_PROGRESS_STATUSES]
+        )
+        if running_count >= self._settings.max_concurrent:
+            return
+
         queued = [d for d in active if d.status == DeploymentStatus.QUEUED]
         if not queued:
             return
+
         next_dep = min(queued, key=lambda d: d.created_at)
+
+        # Transition to PENDING before spawning task to prevent double-dispatch
+        await self._state.upsert(
+            next_dep.pr_number,
+            next_dep.branch,
+            next_dep.commit_sha,
+            DeploymentStatus.PENDING,
+        )
+
         logger.info("Deploying queued PR #%d", next_dep.pr_number)
         asyncio.create_task(
             self.deploy(next_dep.pr_number, next_dep.branch, next_dep.commit_sha)
         )
 
-    async def _run(
-        self,
-        cmd: list[str],
-        cwd: Path,
-        timeout: float = 60,
-    ) -> tuple[int, str, str]:
-        logger.debug("Running: %s in %s", " ".join(cmd), cwd)
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            cwd=str(cwd),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        try:
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                proc.communicate(), timeout=timeout
-            )
-        except asyncio.TimeoutError:
-            proc.kill()
-            await proc.communicate()
-            return 1, "", f"Command timed out after {timeout}s"
+    async def _check_container_health(self, pr_number: int, cwd: Path) -> bool:
+        await asyncio.sleep(HEALTH_CHECK_DELAY)
 
-        stdout = stdout_bytes.decode(errors="replace")
-        stderr = stderr_bytes.decode(errors="replace")
-        logger.debug("Exit %d | stdout: %s | stderr: %s", proc.returncode, stdout[:200], stderr[:200])
-        return proc.returncode or 0, stdout, stderr
+        for attempt in range(1, HEALTH_CHECK_RETRIES + 1):
+            returncode, stdout, stderr = await run_subprocess(
+                [
+                    "docker", "compose",
+                    "-p", f"pr-{pr_number}",
+                    "ps", "--format", "json",
+                ],
+                cwd=cwd,
+            )
+            if returncode != 0:
+                logger.warning(
+                    "Health check ps failed for PR #%d: %s", pr_number, stderr
+                )
+                if attempt < HEALTH_CHECK_RETRIES:
+                    await asyncio.sleep(HEALTH_CHECK_INTERVAL)
+                    continue
+                return False
+
+            try:
+                services = [
+                    json.loads(line)
+                    for line in stdout.strip().splitlines()
+                    if line.strip()
+                ]
+            except json.JSONDecodeError:
+                logger.warning(
+                    "Could not parse docker compose ps for PR #%d", pr_number
+                )
+                if attempt < HEALTH_CHECK_RETRIES:
+                    await asyncio.sleep(HEALTH_CHECK_INTERVAL)
+                    continue
+                return False
+
+            if not services:
+                logger.warning("No services found for PR #%d", pr_number)
+                if attempt < HEALTH_CHECK_RETRIES:
+                    await asyncio.sleep(HEALTH_CHECK_INTERVAL)
+                    continue
+                return False
+
+            all_running = all(
+                svc.get("State", "").lower() == "running"
+                for svc in services
+            )
+            if all_running:
+                logger.info(
+                    "PR #%d health check passed (attempt %d)", pr_number, attempt
+                )
+                return True
+
+            bad = [
+                f"{svc.get('Service', '?')}={svc.get('State', '?')}"
+                for svc in services
+                if svc.get("State", "").lower() != "running"
+            ]
+            logger.warning(
+                "PR #%d health check attempt %d/%d — unhealthy: %s",
+                pr_number, attempt, HEALTH_CHECK_RETRIES, ", ".join(bad),
+            )
+            if attempt < HEALTH_CHECK_RETRIES:
+                await asyncio.sleep(HEALTH_CHECK_INTERVAL)
+
+        return False

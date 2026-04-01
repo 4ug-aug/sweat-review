@@ -8,13 +8,8 @@ subdomains using Traefik, and posts the preview URL as a GitHub PR comment.
 ## How it works
 
 ```
-    GitHub PR event
-         |
-      webhook (POST /webhook)
-         |
-         v
   +---------------+
-  | Preview Agent |  FastAPI server on port 8000
+  | Preview Agent |  Polls GitHub API every 30s
   +-------+-------+
           |
     +-----+------+
@@ -45,24 +40,22 @@ http://pr{N}.{VPS_IP}.nip.io
 [nip.io](https://nip.io) provides wildcard DNS that maps any subdomain
 containing an IP back to that IP — no domain registration or DNS config needed.
 
-When a PR is opened or updated, the agent:
+The agent polls the GitHub API for open PRs every 30 seconds (configurable) and:
 
-1. Clones the PR branch into an isolated directory
-2. Renders a Compose override file that adds Traefik routing labels to your
-   nginx service
-3. Runs `docker compose -p pr-{N} up -d --build` to start the stack
-4. Posts a comment on the PR with the preview URL
+1. **New PR detected** — clones the branch, renders a Compose override with
+   Traefik labels, runs `docker compose up`, posts the preview URL on the PR
+2. **PR updated** (new commits pushed) — pulls latest, rebuilds changed services
+3. **PR closed** — tears down the stack, removes the clone, updates the PR comment
 
-When the PR is closed, the agent tears down the stack, removes the clone
-directory, and updates the PR comment.
+No webhook configuration needed — the agent works behind NAT, firewalls, or
+locally on your machine.
 
 ## Prerequisites
 
-- A VPS (or local machine) with **Docker** and **Docker Compose** installed
+- **Docker** and **Docker Compose** installed
 - **Python 3.12+**
 - **[uv](https://docs.astral.sh/uv/)**
-- A **GitHub personal access token** with `repo` scope (for cloning private
-  repos and posting PR comments)
+- A **GitHub personal access token** with `repo` scope
 
 ## Setup
 
@@ -72,7 +65,6 @@ directory, and updates the PR comment.
 git clone <this-repo>
 cd preview-agent
 
-# Install dependencies (creates .venv automatically)
 uv sync --all-groups
 ```
 
@@ -82,23 +74,22 @@ uv sync --all-groups
 cp .env.example .env
 ```
 
-Edit `.env` with your values:
+Edit `.env`:
 
 ```bash
-GITHUB_WEBHOOK_SECRET=a-strong-random-secret   # You'll use this when creating the webhook
-GITHUB_TOKEN=ghp_your_token_here               # GitHub PAT with repo scope
-GITHUB_REPO=your-org/your-repo                 # The repo to monitor
-VPS_IP=203.0.113.42                            # Your VPS public IP
+GITHUB_TOKEN=ghp_your_token_here    # GitHub PAT with repo scope
+GITHUB_REPO=your-org/your-repo      # The repo to monitor
+VPS_IP=127.0.0.1                    # Your machine's IP (127.0.0.1 for local)
 ```
 
-Full list of settings:
+That's the minimum. Full list of settings:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `GITHUB_WEBHOOK_SECRET` | Shared secret for webhook HMAC verification | (required) |
 | `GITHUB_TOKEN` | GitHub PAT for PR comments and repo cloning | (required) |
 | `GITHUB_REPO` | Target repository as `owner/repo` | (required) |
-| `VPS_IP` | Public IP of the VPS | `127.0.0.1` |
+| `VPS_IP` | IP address for preview URLs | `127.0.0.1` |
+| `POLL_INTERVAL` | Seconds between GitHub API polls | `30` |
 | `CLONE_BASE_DIR` | Directory where PR repos are cloned | `/tmp/preview-agent` |
 | `MAX_CONCURRENT` | Maximum simultaneous preview environments | `15` |
 | `STALE_TIMEOUT_HOURS` | Hours before a deployment is considered stale | `48` |
@@ -108,9 +99,6 @@ Full list of settings:
 
 ### 3. Start Traefik
 
-Traefik is the shared reverse proxy that routes subdomain traffic to the
-correct preview stack.
-
 ```bash
 # Create the shared Docker network (one-time)
 docker network create traefik-public
@@ -119,38 +107,31 @@ docker network create traefik-public
 docker compose -f traefik/docker-compose.yml up -d
 ```
 
-Verify Traefik is running by visiting `http://localhost:8080` (the dashboard).
+Verify Traefik is running at `http://localhost:8080` (dashboard).
 
-### 4. Configure the GitHub webhook
-
-In your target repository, go to **Settings > Webhooks > Add webhook**:
-
-| Field | Value |
-|-------|-------|
-| Payload URL | `http://{VPS_IP}:8000/webhook` |
-| Content type | `application/json` |
-| Secret | Same value as `GITHUB_WEBHOOK_SECRET` in your `.env` |
-| Events | Select **Pull requests** only |
-
-### 5. Start the agent
+### 4. Start the agent
 
 ```bash
 uv run preview-agent
 ```
 
-The agent starts a FastAPI server on `0.0.0.0:8000`. It will:
+The agent will:
 
-- Listen for GitHub webhook events on `POST /webhook`
-- Verify the HMAC signature on every request
-- Deploy, update, or tear down preview stacks in the background
-- Post/update comments on the PR with the preview URL or error details
+- Poll GitHub for open PRs every 30 seconds
+- Deploy preview stacks for new PRs
+- Update stacks when new commits are pushed
+- Tear down stacks when PRs are closed
+- Post/update comments on PRs with the preview URL
+- Clean up stale deployments every 30 minutes
+
+Open a PR on your target repo and wait up to 30 seconds — you'll see a comment
+appear with the preview URL.
 
 ## API endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/webhook` | GitHub webhook receiver (signature-verified) |
-| `GET` | `/health` | Health check — returns `{"status": "healthy"}` |
+| `GET` | `/health` | Health check with disk info |
 | `GET` | `/status` | List all tracked deployments |
 | `GET` | `/status/{pr_number}` | Get a single deployment's status |
 
@@ -163,22 +144,16 @@ uv sync --all-groups
 uv run pytest -v
 ```
 
-This runs 26 tests covering:
-
-- **State store** — SQLite CRUD, upsert semantics, stale query
-- **Compose renderer** — Template rendering, YAML validity, Traefik labels
-- **Webhook signature** — HMAC-SHA256 verification
-- **Orchestrator** — Deploy/teardown state transitions, command construction
-- **Integration** — Full HTTP request flow through the FastAPI app
+46 tests covering state store, compose rendering, orchestrator, poller, cleanup,
+resource checks, and integration.
 
 ### Manual test with the sample app
 
-A minimal multi-service app is included in `sample-app/` (Flask backend, static
-frontend, nginx reverse proxy, Postgres, Celery stub). You can use it to verify
-the Traefik routing without needing a real GitHub webhook.
+A sample multi-service app is in `sample-app/` for testing Traefik routing
+without needing a real repo:
 
 ```bash
-# 1. Make sure Traefik is running (see Setup step 3 above)
+# 1. Make sure Traefik is running (see Setup step 3)
 
 # 2. Render an override for "PR 1"
 uv run python -c "
@@ -198,61 +173,14 @@ docker compose -p pr-1 \
 curl -H "Host: pr1.127.0.0.1.nip.io" http://localhost/api/health
 # Expected: {"status":"ok","service":"backend"}
 
-curl -H "Host: pr1.127.0.0.1.nip.io" http://localhost/api/hello
-# Expected: {"message":"Hello from the backend"}
-
-# 5. Run a second stack to prove isolation
-uv run python -c "
-from preview_agent.compose import ComposeRenderer
-from pathlib import Path
-r = ComposeRenderer(Path('templates/docker-compose.override.yml.j2'))
-r.write_override(Path('sample-app'), pr_number=2, vps_ip='127.0.0.1')
-"
-
-docker compose -p pr-2 \
-  -f sample-app/docker-compose.yml \
-  -f sample-app/docker-compose.override.yml \
-  up -d --build
-
-curl -H "Host: pr2.127.0.0.1.nip.io" http://localhost/api/health
-# Both pr-1 and pr-2 respond independently
-
-# 6. Tear down
+# 5. Tear down
 docker compose -p pr-1 down -v --remove-orphans
-docker compose -p pr-2 down -v --remove-orphans
-```
-
-### Simulate a webhook locally
-
-With the agent running (`uv run preview-agent`), you can send a fake webhook to test
-the full flow end-to-end:
-
-```bash
-# Generate the payload
-PAYLOAD='{"action":"opened","number":99,"pull_request":{"head":{"ref":"main","sha":"abc123"}}}'
-
-# Sign it
-SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "$(grep GITHUB_WEBHOOK_SECRET .env | cut -d= -f2)" | awk '{print "sha256="$2}')
-
-# Send it
-curl -X POST http://localhost:8000/webhook \
-  -H "Content-Type: application/json" \
-  -H "X-GitHub-Event: pull_request" \
-  -H "X-Hub-Signature-256: $SIGNATURE" \
-  -d "$PAYLOAD"
-
-# Check status
-curl http://localhost:8000/status
-curl http://localhost:8000/status/99
 ```
 
 ## Target repo requirements
 
-The preview agent works with any project that has a `docker-compose.yml` with
-an **nginx** service acting as the entry point. The override template attaches
-Traefik labels to the nginx service so it can be reached via subdomain.
-
-If your entry point service has a different name, edit
+Your project needs a `docker-compose.yml` with an **nginx** service as the
+entry point. If your entry point service has a different name, edit
 `templates/docker-compose.override.yml.j2` and replace `nginx` with your
 service name.
 
@@ -264,12 +192,13 @@ service name.
 ├── src/preview_agent/
 │   ├── main.py                             # FastAPI app + CLI entry point
 │   ├── config.py                           # Settings loaded from env vars
-│   ├── webhook.py                          # POST /webhook — GitHub event handler
+│   ├── poller.py                           # Polls GitHub API for PR changes
 │   ├── orchestrator.py                     # Deploy / update / teardown logic
 │   ├── compose.py                          # Jinja2 override template rendering
-│   ├── github_client.py                    # Webhook signature + PR comments
+│   ├── github_client.py                    # GitHub API client (PRs + comments)
 │   ├── state.py                            # SQLite deployment state tracking
-│   └── cleanup.py                          # Stale deployment garbage collection
+│   ├── resources.py                        # Disk/memory resource checks
+│   └── cleanup.py                          # Stale + orphan cleanup scheduler
 ├── templates/
 │   └── docker-compose.override.yml.j2      # Per-PR Compose override with Traefik labels
 ├── traefik/
@@ -279,5 +208,5 @@ service name.
 │   ├── backend/                            # Flask API
 │   ├── frontend/                           # Static HTML
 │   └── nginx/                              # Reverse proxy
-└── tests/                                  # pytest suite (26 tests)
+└── tests/                                  # 46 tests
 ```

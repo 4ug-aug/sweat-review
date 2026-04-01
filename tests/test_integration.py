@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import hmac
-import json
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -16,21 +13,20 @@ from preview_agent.github_client import GitHubClient
 from preview_agent.health import router as health_router
 from preview_agent.orchestrator import Orchestrator
 from preview_agent.state import DeploymentStatus, StateStore
-from preview_agent.webhook import router as webhook_router
-
-WEBHOOK_SECRET = "test-secret"
 
 
 @pytest.fixture
 def test_settings(tmp_path: Path) -> Settings:
+    repos_dir = tmp_path / "repos"
+    repos_dir.mkdir()
     return Settings(
-        github_webhook_secret=WEBHOOK_SECRET,
         github_token="ghp_test",
         github_repo="owner/repo",
         vps_ip="127.0.0.1",
-        clone_base_dir=tmp_path / "repos",
+        clone_base_dir=repos_dir,
         max_concurrent=3,
         stale_timeout_hours=48,
+        poll_interval=30,
         db_path=tmp_path / "test.db",
         compose_file="docker-compose.yml",
         template_path=Path(__file__).resolve().parent.parent
@@ -56,15 +52,9 @@ async def app(
     await state_store.initialize()
 
     github = MagicMock(spec=GitHubClient)
-    github.verify_signature = GitHubClient(
-        token="", repo="", webhook_secret=WEBHOOK_SECRET
-    ).verify_signature
-
     compose = ComposeRenderer(test_settings.template_path)
 
-    # No lifespan — set state directly on the app
     test_app = FastAPI(title="Preview Agent Test")
-    test_app.include_router(webhook_router)
     test_app.include_router(health_router)
 
     test_app.state.settings = test_settings
@@ -83,96 +73,13 @@ async def client(app: FastAPI) -> AsyncClient:
         yield c
 
 
-def _sign(payload: bytes) -> str:
-    digest = hmac.new(WEBHOOK_SECRET.encode(), payload, hashlib.sha256).hexdigest()
-    return f"sha256={digest}"
-
-
-def _pr_payload(action: str, pr_number: int = 42) -> bytes:
-    return json.dumps(
-        {
-            "action": action,
-            "number": pr_number,
-            "pull_request": {
-                "head": {
-                    "ref": "feature-branch",
-                    "sha": "abc123def456",
-                }
-            },
-        }
-    ).encode()
-
-
 async def test_health_endpoint(client: AsyncClient) -> None:
     resp = await client.get("/health")
     assert resp.status_code == 200
-    assert resp.json() == {"status": "healthy"}
-
-
-async def test_webhook_rejects_bad_signature(client: AsyncClient) -> None:
-    payload = _pr_payload("opened")
-    resp = await client.post(
-        "/webhook",
-        content=payload,
-        headers={
-            "X-Hub-Signature-256": "sha256=bad",
-            "X-GitHub-Event": "pull_request",
-            "Content-Type": "application/json",
-        },
-    )
-    assert resp.status_code == 403
-
-
-async def test_webhook_accepts_pr_opened(
-    client: AsyncClient, mock_orchestrator: AsyncMock
-) -> None:
-    payload = _pr_payload("opened")
-    resp = await client.post(
-        "/webhook",
-        content=payload,
-        headers={
-            "X-Hub-Signature-256": _sign(payload),
-            "X-GitHub-Event": "pull_request",
-            "Content-Type": "application/json",
-        },
-    )
-    assert resp.status_code == 200
     data = resp.json()
-    assert data["status"] == "accepted"
-    assert data["action"] == "opened"
-    assert data["pr"] == 42
-
-
-async def test_webhook_accepts_pr_closed(
-    client: AsyncClient, mock_orchestrator: AsyncMock
-) -> None:
-    payload = _pr_payload("closed", pr_number=10)
-    resp = await client.post(
-        "/webhook",
-        content=payload,
-        headers={
-            "X-Hub-Signature-256": _sign(payload),
-            "X-GitHub-Event": "pull_request",
-            "Content-Type": "application/json",
-        },
-    )
-    assert resp.status_code == 200
-    assert resp.json()["action"] == "closed"
-
-
-async def test_webhook_ignores_non_pr_events(client: AsyncClient) -> None:
-    payload = b'{"action": "created"}'
-    resp = await client.post(
-        "/webhook",
-        content=payload,
-        headers={
-            "X-Hub-Signature-256": _sign(payload),
-            "X-GitHub-Event": "issues",
-            "Content-Type": "application/json",
-        },
-    )
-    assert resp.status_code == 200
-    assert resp.json()["status"] == "ignored"
+    assert data["status"] == "healthy"
+    assert "disk_free_gb" in data
+    assert isinstance(data["disk_free_gb"], float)
 
 
 async def test_status_empty(client: AsyncClient) -> None:

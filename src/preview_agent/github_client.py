@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import hmac
 import logging
 
 import httpx
@@ -13,10 +11,9 @@ GITHUB_API = "https://api.github.com"
 
 
 class GitHubClient:
-    def __init__(self, token: str, repo: str, webhook_secret: str) -> None:
+    def __init__(self, token: str, repo: str) -> None:
         self._token = token
         self._repo = repo
-        self._webhook_secret = webhook_secret
         self._client = httpx.AsyncClient(
             base_url=GITHUB_API,
             headers={
@@ -26,14 +23,6 @@ class GitHubClient:
             },
             timeout=30.0,
         )
-
-    def verify_signature(self, payload: bytes, signature: str) -> bool:
-        if not signature.startswith("sha256="):
-            return False
-        expected = hmac.new(
-            self._webhook_secret.encode(), payload, hashlib.sha256
-        ).hexdigest()
-        return hmac.compare_digest(f"sha256={expected}", signature)
 
     async def create_or_update_comment(
         self, pr_number: int, body: str
@@ -70,6 +59,38 @@ class GitHubClient:
                 if COMMENT_MARKER in comment.get("body", ""):
                     return comment["id"]
             page += 1
+
+    async def list_open_prs(self) -> list[dict]:
+        results: list[dict] = []
+        page = 1
+        while True:
+            resp = await self._client.get(
+                f"/repos/{self._repo}/pulls",
+                params={"state": "open", "per_page": 100, "page": page},
+            )
+            resp.raise_for_status()
+            prs = resp.json()
+            if not prs:
+                break
+            for pr in prs:
+                results.append(
+                    {
+                        "number": pr["number"],
+                        "branch": pr["head"]["ref"],
+                        "sha": pr["head"]["sha"],
+                    }
+                )
+            if len(prs) < 100:
+                break
+            page += 1
+        return results
+
+    async def is_pr_open(self, pr_number: int) -> bool:
+        resp = await self._client.get(
+            f"/repos/{self._repo}/pulls/{pr_number}"
+        )
+        resp.raise_for_status()
+        return resp.json().get("state") == "open"
 
     async def close(self) -> None:
         await self._client.aclose()

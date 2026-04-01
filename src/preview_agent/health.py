@@ -1,13 +1,30 @@
 from __future__ import annotations
 
+import shutil
+
 from fastapi import APIRouter, HTTPException, Request
 
 router = APIRouter()
 
 
 @router.get("/health")
-async def health() -> dict:
-    return {"status": "healthy"}
+async def health(request: Request) -> dict:
+    result: dict = {"status": "healthy"}
+
+    try:
+        state = request.app.state.state_store
+        await state.get_all()
+    except Exception:
+        result["status"] = "degraded"
+
+    try:
+        settings = request.app.state.settings
+        usage = shutil.disk_usage(settings.clone_base_dir)
+        result["disk_free_gb"] = round(usage.free / (1024**3), 1)
+    except Exception:
+        pass
+
+    return result
 
 
 @router.get("/status")

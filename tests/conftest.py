@@ -13,13 +13,13 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
     return Settings(
-        github_webhook_secret="test-secret",
         github_token="ghp_test",
         github_repo="owner/repo",
         vps_ip="127.0.0.1",
         clone_base_dir=tmp_path / "repos",
         max_concurrent=3,
         stale_timeout_hours=48,
+        poll_interval=30,
         db_path=tmp_path / "test.db",
         compose_file="docker-compose.yml",
         template_path=PROJECT_ROOT / "templates" / "docker-compose.override.yml.j2",
