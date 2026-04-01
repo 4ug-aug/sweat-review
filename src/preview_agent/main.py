@@ -11,6 +11,7 @@ from preview_agent.poller import PollerService
 from preview_agent.compose import ComposeRenderer
 from preview_agent.config import get_settings
 from preview_agent.github_client import GitHubClient
+from preview_agent.dashboard import router as dashboard_router
 from preview_agent.health import router as health_router
 from preview_agent.orchestrator import Orchestrator
 from preview_agent.state import StateStore
@@ -67,6 +68,7 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Preview Agent", lifespan=lifespan)
+    app.include_router(dashboard_router)
     app.include_router(health_router)
     return app
 
