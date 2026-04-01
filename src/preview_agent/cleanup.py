@@ -58,6 +58,16 @@ class CleanupService:
 
     async def cleanup_stale(self) -> list[int]:
         stale = await self._state.get_stale(self._settings.stale_timeout_hours)
+        if stale:
+            logger.info(
+                "Stale check: %d deployments older than %dh — %s",
+                len(stale),
+                self._settings.stale_timeout_hours,
+                [
+                    f"PR#{d.pr_number}(status={d.status.value}, updated={d.updated_at})"
+                    for d in stale
+                ],
+            )
         cleaned: list[int] = []
         for dep in stale:
             try:

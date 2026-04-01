@@ -94,128 +94,146 @@ class Orchestrator:
         self, pr_number: int, branch: str, commit_sha: str
     ) -> None:
         async with self._get_pr_lock(pr_number):
-            # Resource check
-            try:
-                check_resources(self._settings.clone_base_dir)
-            except InsufficientResourcesError as exc:
-                await self._state.upsert(
-                    pr_number, branch, commit_sha, DeploymentStatus.FAILED,
-                    error_message=str(exc),
-                )
-                await self._github.create_or_update_comment(
-                    pr_number,
-                    f"Cannot deploy — insufficient resources:\n```\n{exc}\n```",
-                )
-                logger.error("PR #%d deploy blocked: %s", pr_number, exc)
-                return
+            await self._deploy_inner(pr_number, branch, commit_sha)
 
-            # Check concurrency
-            active = await self._state.get_active()
-            running_count = len(
-                [d for d in active
-                 if d.status in IN_PROGRESS_STATUSES
-                 and d.pr_number != pr_number]
+    async def _deploy_inner(
+        self, pr_number: int, branch: str, commit_sha: str
+    ) -> None:
+        """Deploy logic without lock — caller must hold the PR lock."""
+        # Resource check
+        try:
+            check_resources(self._settings.clone_base_dir)
+        except InsufficientResourcesError as exc:
+            await self._state.upsert(
+                pr_number, branch, commit_sha, DeploymentStatus.FAILED,
+                error_message=str(exc),
             )
-            if running_count >= self._settings.max_concurrent:
-                queued = [d for d in active if d.status == DeploymentStatus.QUEUED]
-                position = len(queued) + 1
-                await self._state.upsert(
-                    pr_number, branch, commit_sha, DeploymentStatus.QUEUED
-                )
-                await self._github.create_or_update_comment(
-                    pr_number,
-                    f"Preview queued (position #{position}) — max concurrency reached. "
-                    "It will deploy when a slot opens up.",
-                )
-                logger.warning("PR #%d queued at position %d", pr_number, position)
-                return
+            await self._github.create_or_update_comment(
+                pr_number,
+                f"Cannot deploy — insufficient resources:\n```\n{exc}\n```",
+            )
+            logger.error("PR #%d deploy blocked: %s", pr_number, exc)
+            return
 
-            url = self._preview_url(pr_number)
-            clone_dir = self._clone_dir(pr_number)
+        # Check concurrency
+        active = await self._state.get_active()
+        running_count = len(
+            [d for d in active
+             if d.status in IN_PROGRESS_STATUSES
+             and d.pr_number != pr_number]
+        )
+        if running_count >= self._settings.max_concurrent:
+            queued = [d for d in active if d.status == DeploymentStatus.QUEUED]
+            position = len(queued) + 1
+            await self._state.upsert(
+                pr_number, branch, commit_sha, DeploymentStatus.QUEUED
+            )
+            await self._github.create_or_update_comment(
+                pr_number,
+                f"Preview queued (position #{position}) — max concurrency reached. "
+                "It will deploy when a slot opens up.",
+            )
+            logger.warning("PR #%d queued at position %d", pr_number, position)
+            return
 
-            try:
-                await self._state.upsert(
-                    pr_number, branch, commit_sha, DeploymentStatus.PENDING
-                )
-                await self._github.create_or_update_comment(
-                    pr_number, "Deploying preview environment..."
-                )
+        url = self._preview_url(pr_number)
+        clone_dir = self._clone_dir(pr_number)
 
-                # Clone
-                await self._state.upsert(
-                    pr_number, branch, commit_sha, DeploymentStatus.CLONING
-                )
-                clone_dir.parent.mkdir(parents=True, exist_ok=True)
-                if clone_dir.exists():
-                    shutil.rmtree(clone_dir)
+        try:
+            logger.info(
+                "PR #%d deploy start — branch=%s sha=%s clone_dir=%s",
+                pr_number, branch, commit_sha[:7], clone_dir,
+            )
+            await self._state.upsert(
+                pr_number, branch, commit_sha, DeploymentStatus.PENDING
+            )
+            await self._github.create_or_update_comment(
+                pr_number, "Deploying preview environment..."
+            )
 
-                returncode, stdout, stderr = await run_subprocess(
-                    [
-                        "git", "clone", "--depth", "1",
-                        "--branch", branch,
-                        self._clone_url(), str(clone_dir),
-                    ],
-                    cwd=clone_dir.parent,
-                )
-                if returncode != 0:
-                    raise RuntimeError(f"git clone failed: {stderr}")
+            # Clone
+            await self._state.upsert(
+                pr_number, branch, commit_sha, DeploymentStatus.CLONING
+            )
+            clone_dir.parent.mkdir(parents=True, exist_ok=True)
+            if clone_dir.exists():
+                logger.info("PR #%d removing existing clone dir", pr_number)
+                shutil.rmtree(clone_dir)
 
-                # Copy target env file if configured
-                if self._settings.target_env_file:
-                    shutil.copy2(self._settings.target_env_file, clone_dir / ".env")
+            returncode, stdout, stderr = await run_subprocess(
+                [
+                    "git", "clone", "--depth", "1",
+                    "--branch", branch,
+                    self._clone_url(), str(clone_dir),
+                ],
+                cwd=clone_dir.parent,
+            )
+            if returncode != 0:
+                raise RuntimeError(f"git clone failed: {stderr}")
 
-                # Render override
-                self._compose.write_override(clone_dir, pr_number, self._settings.vps_ip, self._settings.compose_file)
+            # Copy target env file if configured
+            if self._settings.target_env_file:
+                shutil.copy2(self._settings.target_env_file, clone_dir / ".env")
 
-                # Build and start
-                await self._state.upsert(
-                    pr_number, branch, commit_sha, DeploymentStatus.BUILDING
-                )
-                compose_file = self._settings.compose_file
-                returncode, stdout, stderr = await run_subprocess(
-                    [
-                        "docker", "compose",
-                        "-p", f"pr-{pr_number}",
-                        "-f", compose_file,
-                        "-f", "docker-compose.override.yml",
-                        "up", "-d", "--build",
-                    ],
-                    cwd=clone_dir,
-                    timeout=DEPLOY_TIMEOUT,
-                )
-                if returncode != 0:
-                    raise RuntimeError(f"docker compose up failed: {stderr}")
+            # Render override
+            self._compose.write_override(clone_dir, pr_number, self._settings.vps_ip, self._settings.compose_file)
 
-                # Health check
-                healthy = await self._check_container_health(pr_number, clone_dir)
-                if not healthy:
-                    raise RuntimeError("Container health check failed after retries")
+            # Build and start
+            await self._state.upsert(
+                pr_number, branch, commit_sha, DeploymentStatus.BUILDING
+            )
+            compose_file = self._settings.compose_file
+            returncode, stdout, stderr = await run_subprocess(
+                [
+                    "docker", "compose",
+                    "-p", f"pr-{pr_number}",
+                    "-f", compose_file,
+                    "-f", "docker-compose.override.yml",
+                    "up", "-d", "--build",
+                ],
+                cwd=clone_dir,
+                timeout=DEPLOY_TIMEOUT,
+            )
+            if returncode != 0:
+                raise RuntimeError(f"docker compose up failed: {stderr}")
 
-                # Success
-                await self._state.upsert(
-                    pr_number, branch, commit_sha, DeploymentStatus.RUNNING, url=url
-                )
-                await self._github.create_or_update_comment(
-                    pr_number,
-                    f"Preview environment ready: {url}",
-                )
-                logger.info("PR #%d deployed at %s", pr_number, url)
+            # Health check
+            healthy = await self._check_container_health(pr_number, clone_dir)
+            if not healthy:
+                raise RuntimeError("Container health check failed after retries")
 
-            except Exception as exc:
-                error_msg = str(exc)[:500]
-                await self._state.upsert(
-                    pr_number, branch, commit_sha, DeploymentStatus.FAILED,
-                    error_message=error_msg,
-                )
-                await self._github.create_or_update_comment(
-                    pr_number,
-                    f"Preview deployment failed:\n```\n{error_msg}\n```",
-                )
-                logger.error("PR #%d deploy failed: %s", pr_number, error_msg)
+            # Success
+            await self._state.upsert(
+                pr_number, branch, commit_sha, DeploymentStatus.RUNNING, url=url
+            )
+            await self._github.create_or_update_comment(
+                pr_number,
+                f"Preview environment ready: {url}",
+            )
+            logger.info(
+                "PR #%d deployed — url=%s branch=%s sha=%s",
+                pr_number, url, branch, commit_sha[:7],
+            )
+
+        except Exception as exc:
+            error_msg = str(exc)[:500]
+            await self._state.upsert(
+                pr_number, branch, commit_sha, DeploymentStatus.FAILED,
+                error_message=error_msg,
+            )
+            await self._github.create_or_update_comment(
+                pr_number,
+                f"Preview deployment failed:\n```\n{error_msg}\n```",
+            )
+            logger.error("PR #%d deploy failed: %s", pr_number, error_msg)
 
     async def teardown(self, pr_number: int) -> None:
         async with self._get_pr_lock(pr_number):
             clone_dir = self._clone_dir(pr_number)
+            logger.info(
+                "PR #%d teardown start — clone_dir=%s exists=%s",
+                pr_number, clone_dir, clone_dir.exists(),
+            )
 
             try:
                 await self._state.upsert(
@@ -255,9 +273,11 @@ class Orchestrator:
             clone_dir = self._clone_dir(pr_number)
 
             if not clone_dir.exists():
-                logger.info("PR #%d clone dir missing, doing full deploy", pr_number)
-            if not clone_dir.exists():
-                await self.deploy(pr_number, branch, commit_sha)
+                logger.info(
+                    "PR #%d clone dir missing (%s) — doing full deploy",
+                    pr_number, clone_dir,
+                )
+                await self._deploy_inner(pr_number, branch, commit_sha)
                 return
 
             # Resource check
@@ -276,6 +296,10 @@ class Orchestrator:
                 return
 
             try:
+                logger.info(
+                    "PR #%d update start — branch=%s sha=%s clone_dir=%s",
+                    pr_number, branch, commit_sha[:7], clone_dir,
+                )
                 await self._github.create_or_update_comment(
                     pr_number, "Updating preview environment..."
                 )

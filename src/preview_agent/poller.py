@@ -73,33 +73,54 @@ class PollerService:
         deployments = await self._state.get_all()
         deployment_map = {dep.pr_number: dep for dep in deployments}
 
+        logger.info(
+            "Poll: %d open PRs %s, %d tracked deployments %s",
+            len(open_pr_map),
+            sorted(open_pr_map.keys()),
+            len(deployment_map),
+            {pr: dep.status.value for pr, dep in deployment_map.items()},
+        )
+
         # New or updated PRs
         for pr_number, pr in open_pr_map.items():
             dep = deployment_map.get(pr_number)
 
             if dep is None:
                 # New PR — deploy
-                logger.info("New PR #%d detected — deploying", pr_number)
+                logger.info(
+                    "PR #%d new — branch=%s sha=%s — deploying",
+                    pr_number, pr["branch"], pr["sha"][:7],
+                )
                 await self._orchestrator.deploy(
                     pr_number, pr["branch"], pr["sha"]
                 )
                 continue
 
             if dep.status in SKIP_STATUSES:
+                logger.debug(
+                    "PR #%d status=%s — skipping (teardown in progress)",
+                    pr_number, dep.status.value,
+                )
                 continue
 
             if dep.status in IN_PROGRESS_STATUSES:
-                # Already in progress with any SHA — skip
+                logger.debug(
+                    "PR #%d status=%s sha=%s — skipping (in progress)",
+                    pr_number, dep.status.value, dep.commit_sha[:7],
+                )
                 continue
 
             if dep.commit_sha == pr["sha"]:
-                # Same SHA, already running or failed — no action
+                logger.debug(
+                    "PR #%d status=%s sha=%s — no change",
+                    pr_number, dep.status.value, dep.commit_sha[:7],
+                )
                 continue
 
             # SHA changed — update (handles both RUNNING and FAILED with new push)
             logger.info(
-                "PR #%d SHA changed (%s → %s) — updating",
-                pr_number, dep.commit_sha[:7], pr["sha"][:7],
+                "PR #%d SHA changed (%s → %s) status=%s — updating",
+                pr_number, dep.commit_sha[:7], pr["sha"][:7], dep.status.value,
             )
             await self._orchestrator.update(
                 pr_number, pr["branch"], pr["sha"]
@@ -108,5 +129,8 @@ class PollerService:
         # Closed PRs — teardown deployments for PRs no longer open
         for pr_number, dep in deployment_map.items():
             if pr_number not in open_pr_numbers and dep.status not in SKIP_STATUSES:
-                logger.info("PR #%d no longer open — tearing down", pr_number)
+                logger.info(
+                    "PR #%d no longer open (was %s, sha=%s, updated=%s) — tearing down",
+                    pr_number, dep.status.value, dep.commit_sha[:7], dep.updated_at,
+                )
                 await self._orchestrator.teardown(pr_number)
