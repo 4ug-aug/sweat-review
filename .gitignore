@@ -23,6 +23,9 @@ venv/
 htmlcov/
 .coverage
 
+# Node
+node_modules/
+
 # IDE
 .idea/
 .vscode/
