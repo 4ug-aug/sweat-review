@@ -7,8 +7,10 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import {
   ArrowRight01Icon,
   Cancel01Icon,
+  CheckmarkCircle02Icon,
   Clock01Icon,
   ContainerIcon,
+  Copy01Icon,
   GithubIcon,
   Globe02Icon,
   LockIcon,
@@ -605,21 +607,44 @@ const WhySelfHostedSection = () => {
 // QUICK START SECTION
 // ============================================================================
 
-const CodeBlock = ({ code }: { code: string }) => (
-  <div className="rounded-md border border-border bg-[#0d1117] dark:bg-[#0a0a0a] overflow-hidden">
-    <pre className="p-4 font-mono text-xs leading-relaxed text-gray-300 overflow-x-auto">
-      {code.split('\n').map((line, i) => (
-        <div key={i}>
-          {line.startsWith('#') ? (
-            <span className="text-gray-600">{line}</span>
-          ) : (
-            line
-          )}
-        </div>
-      ))}
-    </pre>
-  </div>
-)
+const CodeBlock = ({ code }: { code: string }) => {
+  const [copied, setCopied] = React.useState(false)
+
+  const copyToClipboard = () => {
+    const commands = code
+      .split('\n')
+      .filter(line => !line.startsWith('#') && line.trim() !== '')
+      .join('\n')
+    navigator.clipboard.writeText(commands)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="group relative rounded-md border border-border bg-[#0d1117] dark:bg-[#0a0a0a] overflow-hidden">
+      <button
+        onClick={copyToClipboard}
+        className="absolute top-2.5 right-2.5 p-1.5 rounded-md bg-white/5 border border-white/10 text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-all opacity-0 group-hover:opacity-100"
+      >
+        <HugeiconsIcon
+          icon={copied ? CheckmarkCircle02Icon : Copy01Icon}
+          className={cn('h-3.5 w-3.5', copied && 'text-green-400')}
+        />
+      </button>
+      <pre className="p-4 font-mono text-xs leading-relaxed text-gray-300 overflow-x-auto">
+        {code.split('\n').map((line, i) => (
+          <div key={i}>
+            {line.startsWith('#') ? (
+              <span className="text-gray-600">{line}</span>
+            ) : (
+              line
+            )}
+          </div>
+        ))}
+      </pre>
+    </div>
+  )
+}
 
 const QuickStartSection = () => {
   return (
