@@ -16,20 +16,28 @@ class ComposeRenderer:
         )
         self._template_name = template_path.name
 
-    def render_override(self, pr_number: int, vps_ip: str) -> str:
+    def render_override(
+        self, pr_number: int, vps_ip: str, all_services: list[str] | None = None
+    ) -> str:
         template = self._env.get_template(self._template_name)
-        return template.render(pr_number=pr_number, vps_ip=vps_ip)
+        return template.render(
+            pr_number=pr_number,
+            vps_ip=vps_ip,
+            all_services=all_services or [],
+        )
 
     def write_override(
         self, target_dir: Path, pr_number: int, vps_ip: str, compose_file: str = "docker-compose.yml"
     ) -> Path:
-        override_content = self.render_override(pr_number, vps_ip)
-        self._validate_target(target_dir, override_content, compose_file)
+        target_services = self._validate_target(target_dir, compose_file)
+        override_content = self.render_override(pr_number, vps_ip, target_services)
+        self._validate_override_services(override_content, target_services, compose_file)
         output_path = target_dir / "docker-compose.override.yml"
         output_path.write_text(override_content)
         return output_path
 
-    def _validate_target(self, target_dir: Path, override_content: str, compose_file: str) -> None:
+    def _validate_target(self, target_dir: Path, compose_file: str) -> list[str]:
+        """Parse the target compose file and return its service names."""
         compose_path = target_dir / compose_file
 
         if not compose_path.exists():
@@ -50,22 +58,25 @@ class ComposeRenderer:
                 f"{compose_path.name} has no 'services' section."
             )
 
-        target_services = set(target["services"].keys())
+        return sorted(target["services"].keys())
 
-        # Parse the override to find which services it references
-        # Use a custom loader to handle Docker Compose tags like !override
+    def _validate_override_services(
+        self, override_content: str, target_services: list[str], compose_file: str
+    ) -> None:
+        """Check that all services referenced in the override exist in the target."""
         override = yaml.load(override_content, Loader=_ComposeLoader)
         if not isinstance(override, dict) or "services" not in override:
             return
 
         override_services = set(override["services"].keys())
-        missing = override_services - target_services
+        target_set = set(target_services)
+        missing = override_services - target_set
 
         if missing:
             raise ComposeValidationError(
-                f"Override references services not found in {compose_path.name}: "
+                f"Override references services not found in {compose_file}: "
                 f"{', '.join(sorted(missing))}. "
-                f"Available services: {', '.join(sorted(target_services))}. "
+                f"Available services: {', '.join(sorted(target_set))}. "
                 f"Update the override template or the target repo's Compose file."
             )
 

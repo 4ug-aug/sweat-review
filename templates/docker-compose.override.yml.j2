@@ -9,6 +9,10 @@ services:
     networks:
       - default
       - traefik-public
+{% for svc in all_services if svc != "nginx" %}
+  {{ svc }}:
+    ports: !override []
+{% endfor %}
 
 networks:
   traefik-public:
