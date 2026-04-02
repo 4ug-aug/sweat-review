@@ -16,7 +16,6 @@ from fastapi import FastAPI
 from sweat_review.cleanup import CleanupService
 from sweat_review.compose import ComposeRenderer
 from sweat_review.config import get_settings
-from sweat_review.dashboard import router as dashboard_router
 from sweat_review.github_client import GitHubClient
 from sweat_review.health import router as health_router
 from sweat_review.orchestrator import Orchestrator
@@ -77,7 +76,6 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(title="SWEAT Review", lifespan=lifespan)
-    app.include_router(dashboard_router)
     app.include_router(health_router)
     return app
 
