@@ -2,16 +2,15 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from sweat_review.compose import ComposeRenderer
 from sweat_review.config import Settings
-from sweat_review.dashboard import relative_time, render_dashboard, router as dashboard_router
-from sweat_review.state import Deployment, DeploymentStatus, StateStore
+from sweat_review.dashboard import relative_time
+from sweat_review.dashboard import router as dashboard_router
+from sweat_review.state import DeploymentStatus, StateStore
 
 
 @pytest.fixture
@@ -56,7 +55,7 @@ async def test_dashboard_returns_html(client: AsyncClient) -> None:
     resp = await client.get("/")
     assert resp.status_code == 200
     assert "text/html" in resp.headers["content-type"]
-    assert "Preview Agent" in resp.text
+    assert "SWEAT Review" in resp.text
 
 
 async def test_dashboard_empty_state(client: AsyncClient) -> None:
@@ -67,7 +66,10 @@ async def test_dashboard_empty_state(client: AsyncClient) -> None:
 async def test_dashboard_shows_deployment(client: AsyncClient, app: FastAPI) -> None:
     state = app.state.state_store
     await state.upsert(
-        42, "feat/login", "abc1234def", DeploymentStatus.RUNNING,
+        42,
+        "feat/login",
+        "abc1234def",
+        DeploymentStatus.RUNNING,
         url="http://pr42.127.0.0.1.nip.io",
     )
     resp = await client.get("/")
@@ -81,7 +83,10 @@ async def test_dashboard_shows_deployment(client: AsyncClient, app: FastAPI) -> 
 async def test_dashboard_failed_no_link(client: AsyncClient, app: FastAPI) -> None:
     state = app.state.state_store
     await state.upsert(
-        10, "fix/bug", "deadbeef123", DeploymentStatus.FAILED,
+        10,
+        "fix/bug",
+        "deadbeef123",
+        DeploymentStatus.FAILED,
         error_message="build failed",
     )
     resp = await client.get("/")

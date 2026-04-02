@@ -4,8 +4,8 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from httpx import ASGITransport, AsyncClient
 from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
 
 from sweat_review.compose import ComposeRenderer
 from sweat_review.config import Settings
@@ -45,16 +45,14 @@ def mock_orchestrator() -> AsyncMock:
 
 
 @pytest.fixture
-async def app(
-    test_settings: Settings, mock_orchestrator: AsyncMock
-) -> FastAPI:
+async def app(test_settings: Settings, mock_orchestrator: AsyncMock) -> FastAPI:
     state_store = StateStore(test_settings.db_path)
     await state_store.initialize()
 
     github = MagicMock(spec=GitHubClient)
     compose = ComposeRenderer(test_settings.template_path)
 
-    test_app = FastAPI(title="Preview Agent Test")
+    test_app = FastAPI(title="SWEAT Review Test")
     test_app.include_router(health_router)
 
     test_app.state.settings = test_settings

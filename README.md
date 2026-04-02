@@ -1,15 +1,15 @@
-# Preview Agent
+# SWEAT Review
 
 Self-hosted ephemeral preview environments for GitHub pull requests.
 
-Spins up an isolated Docker Compose stack per PR on a VPS, routes traffic via
+Spins up an isolated ephemeral Docker Compose stack per PR on a VPS, routes traffic via
 subdomains using Traefik, and posts the preview URL as a GitHub PR comment.
 
 ## How it works
 
 ```mermaid
 graph TD
-    A["Preview Agent<br/><i>Polls GitHub API every 30s</i>"] --> B["Clone repo & render<br/>Compose override"]
+    A["SWEAT Review<br/><i>Polls GitHub API every 30s</i>"] --> B["Clone repo & render<br/>ephemeral Compose override"]
     A --> C["Post preview URL<br/>comment on PR"]
     B --> D["docker compose<br/>up -d --build"]
     D --> T["Traefik<br/><i>Shared reverse proxy on port 80<br/>Routes by Host header</i>"]

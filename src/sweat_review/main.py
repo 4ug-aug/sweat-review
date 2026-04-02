@@ -61,7 +61,11 @@ async def lifespan(app: FastAPI):
     await poller.start()
     app.state.poller = poller
 
-    logger.info("SWEAT Review started — repo: %s, vps: %s", settings.github_repo, settings.vps_ip)
+    logger.info(
+        "SWEAT Review started — repo: %s, vps: %s",
+        settings.github_repo,
+        settings.vps_ip,
+    )
 
     yield
 
@@ -85,7 +89,7 @@ def create_app() -> FastAPI:
 
 def run_init(target_dir: Path) -> None:
     target_dir = target_dir.resolve()
-    print("\n  SWEAT Review — Preview Agent Setup\n")
+    print("\n  SWEAT Review — Setup\n")
 
     # Prompt for configuration
     token = getpass.getpass("  GitHub Token (ghp_...): ")
@@ -102,11 +106,7 @@ def run_init(target_dir: Path) -> None:
 
     # Write .env
     env_path = target_dir / ".env"
-    env_path.write_text(
-        f"GITHUB_TOKEN={token}\n"
-        f"GITHUB_REPO={repo}\n"
-        f"VPS_IP={vps_ip}\n"
-    )
+    env_path.write_text(f"GITHUB_TOKEN={token}\nGITHUB_REPO={repo}\nVPS_IP={vps_ip}\n")
     print(f"  ✓ Created {env_path}")
 
     # Write traefik compose
@@ -159,7 +159,9 @@ def run_start(host: str, port: int) -> None:
             field = err["loc"][0]
             msg = err["msg"]
             print(f"  {field}: {msg}", file=sys.stderr)
-        print("\nRun 'sweat-review init' first, or check your .env file.", file=sys.stderr)
+        print(
+            "\nRun 'sweat-review init' first, or check your .env file.", file=sys.stderr
+        )
         sys.exit(1)
 
     app = create_app()
@@ -180,13 +182,19 @@ def cli() -> None:
 
     init_p = sub.add_parser("init", help="Set up a new sweat-review project")
     init_p.add_argument(
-        "--dir", type=Path, default=Path("."),
+        "--dir",
+        type=Path,
+        default=Path("."),
         help="Directory to initialize (default: current directory)",
     )
 
-    start_p = sub.add_parser("start", help="Start the preview agent")
-    start_p.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)")
-    start_p.add_argument("--port", type=int, default=8000, help="Bind port (default: 8000)")
+    start_p = sub.add_parser("start", help="Start the SWEAT Review server")
+    start_p.add_argument(
+        "--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)"
+    )
+    start_p.add_argument(
+        "--port", type=int, default=8000, help="Bind port (default: 8000)"
+    )
 
     args = parser.parse_args()
 

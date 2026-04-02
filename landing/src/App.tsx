@@ -253,7 +253,7 @@ const Header = () => {
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         <a href="/" className="flex items-center gap-2">
           <img src="/sweat-review.svg" alt="SWEAT" className="h-8 w-auto invert dark:invert-0" />
-          <span className="font-semibold text-foreground tracking-tight">Preview Agent</span>
+          <span className="font-semibold text-foreground tracking-tight">SWEAT Review</span>
         </a>
 
         <nav className="hidden md:flex items-center gap-8">
@@ -536,7 +536,7 @@ const ComparisonCard = ({
           </Badge>
         ) : (
           <Badge className="bg-primary/10 text-primary border-primary/20">
-            Preview Agent
+            SWEAT Review
           </Badge>
         )}
       </div>
@@ -592,11 +592,206 @@ const WhySelfHostedSection = () => {
             variant="saas"
           />
           <ComparisonCard
-            title="Preview Agent"
+            title="SWEAT Review"
             items={AGENT_ITEMS}
             variant="agent"
           />
         </div>
+      </div>
+    </section>
+  )
+}
+
+
+// ============================================================================
+// COMPARISON TABLE SECTION
+// ============================================================================
+
+const COMPARISON_FEATURES = [
+  'Self-hosted',
+  'Open source',
+  'Full-stack previews',
+  'No vendor lock-in',
+  'Works behind NAT',
+  'Free',
+  'No config changes to your repo',
+  'Database included',
+]
+
+const COMPARISON_TOOLS: {
+  name: string
+  category: string
+  features: Record<string, boolean | string>
+  highlight?: boolean
+}[] = [
+  {
+    name: 'SWEAT Review',
+    category: 'Self-hosted agent',
+    highlight: true,
+    features: {
+      'Self-hosted': true,
+      'Open source': true,
+      'Full-stack previews': true,
+      'No vendor lock-in': true,
+      'Works behind NAT': true,
+      'Free': true,
+      'No config changes to your repo': true,
+      'Database included': true,
+    },
+  },
+  {
+    name: 'Vercel Previews',
+    category: 'SaaS',
+    features: {
+      'Self-hosted': false,
+      'Open source': false,
+      'Full-stack previews': false,
+      'No vendor lock-in': false,
+      'Works behind NAT': true,
+      'Free': false,
+      'No config changes to your repo': false,
+      'Database included': false,
+    },
+  },
+  {
+    name: 'Netlify Deploy Previews',
+    category: 'SaaS',
+    features: {
+      'Self-hosted': false,
+      'Open source': false,
+      'Full-stack previews': false,
+      'No vendor lock-in': false,
+      'Works behind NAT': true,
+      'Free': false,
+      'No config changes to your repo': false,
+      'Database included': false,
+    },
+  },
+  {
+    name: 'PullPreview',
+    category: 'Preview tool',
+    features: {
+      'Self-hosted': true,
+      'Open source': true,
+      'Full-stack previews': true,
+      'No vendor lock-in': true,
+      'Works behind NAT': false,
+      'Free': true,
+      'No config changes to your repo': false,
+      'Database included': true,
+    },
+  },
+  {
+    name: 'Coolify',
+    category: 'PaaS',
+    features: {
+      'Self-hosted': true,
+      'Open source': true,
+      'Full-stack previews': true,
+      'No vendor lock-in': true,
+      'Works behind NAT': false,
+      'Free': true,
+      'No config changes to your repo': false,
+      'Database included': true,
+    },
+  },
+  {
+    name: 'Railway',
+    category: 'PaaS',
+    features: {
+      'Self-hosted': false,
+      'Open source': false,
+      'Full-stack previews': true,
+      'No vendor lock-in': false,
+      'Works behind NAT': true,
+      'Free': false,
+      'No config changes to your repo': false,
+      'Database included': true,
+    },
+  },
+]
+
+const ComparisonSection = () => {
+  return (
+    <section id="comparison">
+      <div className="py-14 px-6 text-center border-b border-border">
+        <h2 className="text-3xl font-extrabold text-foreground tracking-tight mb-4">
+          How We Compare
+        </h2>
+        <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+          Not all preview environments are created equal.
+        </p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="text-left p-4 font-medium text-muted-foreground min-w-[180px]">
+                Feature
+              </th>
+              {COMPARISON_TOOLS.map((tool) => (
+                <th
+                  key={tool.name}
+                  className={cn(
+                    'p-4 text-center min-w-[120px]',
+                    tool.highlight && 'bg-primary/5'
+                  )}
+                >
+                  <div className={cn(
+                    'font-bold text-sm',
+                    tool.highlight ? 'text-primary' : 'text-foreground'
+                  )}>
+                    {tool.name}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground font-normal mt-0.5">
+                    {tool.category}
+                  </div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {COMPARISON_FEATURES.map((feature, i) => (
+              <tr
+                key={feature}
+                className={cn(
+                  'border-b border-border/50',
+                  i % 2 === 0 && 'bg-muted/5'
+                )}
+              >
+                <td className="p-4 text-foreground font-medium text-xs">
+                  {feature}
+                </td>
+                {COMPARISON_TOOLS.map((tool) => {
+                  const value = tool.features[feature]
+                  return (
+                    <td
+                      key={tool.name}
+                      className={cn(
+                        'p-4 text-center',
+                        tool.highlight && 'bg-primary/5'
+                      )}
+                    >
+                      {typeof value === 'string' ? (
+                        <span className="text-xs text-muted-foreground">{value}</span>
+                      ) : value ? (
+                        <HugeiconsIcon
+                          icon={Tick02Icon}
+                          className="h-4 w-4 text-green-600 dark:text-green-400 mx-auto"
+                        />
+                      ) : (
+                        <HugeiconsIcon
+                          icon={Cancel01Icon}
+                          className="h-4 w-4 text-muted-foreground/30 mx-auto"
+                        />
+                      )}
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </section>
   )
@@ -686,7 +881,7 @@ const FooterSection = () => {
         <div className="p-8 flex items-center justify-center md:justify-start">
           <a href="/" className="flex items-center gap-2">
             <img src="/sweat-review.svg" alt="SWEAT" className="h-8 w-auto invert dark:invert-0" />
-            <span className="font-bold text-foreground">Preview Agent</span>
+            <span className="font-bold text-foreground">SWEAT Review</span>
           </a>
         </div>
         <div className="p-8 flex items-center justify-center gap-8">
@@ -724,6 +919,8 @@ const App = () => {
           <HowItWorksSection />
           <GrillSeparator />
           <WhySelfHostedSection />
+          <GrillSeparator />
+          <ComparisonSection />
           <GrillSeparator />
           <QuickStartSection />
           <GrillSeparator />

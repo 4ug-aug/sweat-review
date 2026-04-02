@@ -84,7 +84,7 @@ def render_dashboard(deployments: list[Deployment], repo: str) -> str:
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="refresh" content="30">
-  <title>Preview Agent</title>
+  <title>SWEAT Review</title>
   <style>
     * {{ margin: 0; padding: 0; box-sizing: border-box; }}
     body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -107,7 +107,7 @@ def render_dashboard(deployments: list[Deployment], repo: str) -> str:
   </style>
 </head>
 <body>
-  <h1>Preview Agent <span>auto-refreshes every 30s</span></h1>
+  <h1>SWEAT Review <span>auto-refreshes every 30s</span></h1>
   <table>
     <thead>
       <tr>
