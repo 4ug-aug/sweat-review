@@ -14,7 +14,6 @@ import {
   LockIcon,
   Rocket01Icon,
   ServerStack01Icon,
-  TerminalIcon,
   Tick02Icon,
 } from '@hugeicons/core-free-icons'
 import { motion } from 'motion/react'
@@ -264,7 +263,7 @@ const Header = () => {
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         <a href="/" className="flex items-center gap-2">
-          <HugeiconsIcon icon={TerminalIcon} className="h-5 w-5 text-primary" />
+          <img src="/sweat-review.svg" alt="SWEAT" className="h-8 w-auto invert dark:invert-0" />
           <span className="font-semibold text-foreground tracking-tight">Preview Agent</span>
         </a>
 
@@ -674,7 +673,7 @@ const FooterSection = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border">
         <div className="p-8 flex items-center justify-center md:justify-start">
           <a href="/" className="flex items-center gap-2">
-            <HugeiconsIcon icon={TerminalIcon} className="h-5 w-5 text-primary" />
+            <img src="/sweat-review.svg" alt="SWEAT" className="h-8 w-auto invert dark:invert-0" />
             <span className="font-bold text-foreground">Preview Agent</span>
           </a>
         </div>
