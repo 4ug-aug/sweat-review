@@ -50,36 +50,34 @@ locally on your machine.
 ## Prerequisites
 
 - **Docker** and **Docker Compose** installed
-- **Python 3.12+**
-- **[uv](https://docs.astral.sh/uv/)**
+- **Python 3.12+** (or just use [uv](https://docs.astral.sh/uv/) / [uvx](https://docs.astral.sh/uv/guides/tools/))
 - A **GitHub personal access token** (see [Token setup](#github-token-setup) below)
 
-## Setup
+## Quick start
 
-### 1. Clone and install
-
-```bash
-git clone <this-repo>
-cd preview-agent
-
-uv sync --all-groups
-```
-
-### 2. Configure environment
+### 1. Initialize
 
 ```bash
-cp .env.example .env
+uvx sweat-review init
 ```
 
-Edit `.env`:
+This prompts for your GitHub token, repo, and VPS IP, then writes `.env`,
+creates the Traefik reverse proxy config, sets up the Docker network, and
+starts Traefik — all in one step.
+
+### 2. Start
 
 ```bash
-GITHUB_TOKEN=ghp_your_token_here    # See "GitHub token setup" below
-GITHUB_REPO=your-org/your-repo      # The repo to monitor
-VPS_IP=127.0.0.1                    # Your machine's IP (127.0.0.1 for local)
+uvx sweat-review start
 ```
 
-That's the minimum. Full list of settings:
+That's it. Open a PR on your target repo and wait up to 30 seconds — you'll
+see a comment with the preview URL.
+
+### Configuration reference
+
+The `init` command writes a `.env` file with the essentials. You can edit it
+to tune additional settings:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -135,35 +133,17 @@ Set **Repository access** to "Only select repositories" and pick your target rep
 Select the `repo` scope (grants full access to private repos — less granular
 than fine-grained tokens).
 
-### 3. Start Traefik
+## Validate your Compose file
+
+Before opening a PR, you can check your `docker-compose.yml` for
+preview-compatibility issues:
 
 ```bash
-# Create the shared Docker network (one-time)
-docker network create traefik-public
-
-# Start Traefik
-docker compose -f traefik/docker-compose.yml up -d
+uvx sweat-review check
 ```
 
-Verify Traefik is running at `http://localhost:8080` (dashboard).
-
-### 4. Start the agent
-
-```bash
-uv run preview-agent
-```
-
-The agent will:
-
-- Poll GitHub for open PRs every 30 seconds
-- Deploy preview stacks for new PRs
-- Update stacks when new commits are pushed
-- Tear down stacks when PRs are closed
-- Post/update comments on PRs with the preview URL
-- Clean up stale deployments every 30 minutes
-
-Open a PR on your target repo and wait up to 30 seconds — you'll see a comment
-appear with the preview URL.
+Use `-f` to point at a different file, or `--format json` for machine-readable
+output.
 
 ## API endpoints
 
@@ -191,7 +171,7 @@ A sample multi-service app is in `sample-app/` for testing Traefik routing
 without needing a real repo:
 
 ```bash
-# 1. Make sure Traefik is running (see Setup step 3)
+# 1. Make sure Traefik is running (sweat-review init starts it)
 
 # 2. Render an override for "PR 1"
 uv run python -c "
