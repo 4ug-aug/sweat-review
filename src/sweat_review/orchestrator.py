@@ -6,11 +6,11 @@ import logging
 import shutil
 from pathlib import Path
 
-from preview_agent.compose import ComposeRenderer, ComposeValidationError
-from preview_agent.config import Settings
-from preview_agent.github_client import GitHubClient
-from preview_agent.resources import InsufficientResourcesError, check_resources
-from preview_agent.state import DeploymentStatus, StateStore
+from sweat_review.compose import ComposeRenderer, ComposeValidationError
+from sweat_review.config import Settings
+from sweat_review.github_client import GitHubClient
+from sweat_review.resources import InsufficientResourcesError, check_resources
+from sweat_review.state import DeploymentStatus, StateStore
 
 logger = logging.getLogger(__name__)
 

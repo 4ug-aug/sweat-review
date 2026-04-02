@@ -6,7 +6,7 @@ from html import escape
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
-from preview_agent.state import Deployment, DeploymentStatus
+from sweat_review.state import Deployment, DeploymentStatus
 
 router = APIRouter()
 

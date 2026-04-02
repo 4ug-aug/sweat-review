@@ -7,11 +7,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from preview_agent.compose import ComposeRenderer
-from preview_agent.config import Settings
-from preview_agent.github_client import GitHubClient
-from preview_agent.orchestrator import Orchestrator
-from preview_agent.state import DeploymentStatus, StateStore
+from sweat_review.compose import ComposeRenderer
+from sweat_review.config import Settings
+from sweat_review.github_client import GitHubClient
+from sweat_review.orchestrator import Orchestrator
+from sweat_review.state import DeploymentStatus, StateStore
 
 
 @pytest.fixture
@@ -51,9 +51,9 @@ def _health_check_ps_output() -> bytes:
     return "\n".join(lines).encode()
 
 
-@patch("preview_agent.orchestrator.HEALTH_CHECK_DELAY", 0)
-@patch("preview_agent.orchestrator.HEALTH_CHECK_INTERVAL", 0)
-@patch("preview_agent.orchestrator.check_resources")
+@patch("sweat_review.orchestrator.HEALTH_CHECK_DELAY", 0)
+@patch("sweat_review.orchestrator.HEALTH_CHECK_INTERVAL", 0)
+@patch("sweat_review.orchestrator.check_resources")
 async def test_deploy_happy_path(
     mock_resources: MagicMock,
     orchestrator: Orchestrator, state_store: StateStore, mock_github: AsyncMock,
@@ -80,7 +80,7 @@ async def test_deploy_happy_path(
     assert mock_github.create_or_update_comment.call_count >= 2
 
 
-@patch("preview_agent.orchestrator.check_resources")
+@patch("sweat_review.orchestrator.check_resources")
 async def test_deploy_clone_failure(
     mock_resources: MagicMock,
     orchestrator: Orchestrator, state_store: StateStore, mock_github: AsyncMock,
@@ -104,7 +104,7 @@ async def test_deploy_clone_failure(
     assert "clone failed" in dep.error_message
 
 
-@patch("preview_agent.orchestrator.check_resources")
+@patch("sweat_review.orchestrator.check_resources")
 async def test_teardown(
     mock_resources: MagicMock,
     orchestrator: Orchestrator, state_store: StateStore, mock_github: AsyncMock,
@@ -121,9 +121,9 @@ async def test_teardown(
     mock_github.create_or_update_comment.assert_called()
 
 
-@patch("preview_agent.orchestrator.HEALTH_CHECK_DELAY", 0)
-@patch("preview_agent.orchestrator.HEALTH_CHECK_INTERVAL", 0)
-@patch("preview_agent.orchestrator.check_resources")
+@patch("sweat_review.orchestrator.HEALTH_CHECK_DELAY", 0)
+@patch("sweat_review.orchestrator.HEALTH_CHECK_INTERVAL", 0)
+@patch("sweat_review.orchestrator.check_resources")
 async def test_deploy_commands_are_correct(
     mock_resources: MagicMock,
     orchestrator: Orchestrator, state_store: StateStore,
@@ -159,7 +159,7 @@ async def test_deploy_commands_are_correct(
 # --- Phase 4 new tests ---
 
 
-@patch("preview_agent.orchestrator.check_resources")
+@patch("sweat_review.orchestrator.check_resources")
 async def test_deploy_queues_at_max_concurrency(
     mock_resources: MagicMock,
     orchestrator: Orchestrator, state_store: StateStore, mock_github: AsyncMock,
@@ -181,7 +181,7 @@ async def test_deploy_queues_at_max_concurrency(
     assert "queued" in comment_call[0][1].lower() or "queued" in str(comment_call)
 
 
-@patch("preview_agent.orchestrator.check_resources")
+@patch("sweat_review.orchestrator.check_resources")
 async def test_deploy_next_queued_transitions_to_pending(
     mock_resources: MagicMock,
     orchestrator: Orchestrator, state_store: StateStore, mock_github: AsyncMock,
@@ -206,8 +206,8 @@ async def test_deploy_next_queued_transitions_to_pending(
     assert dep20.status == DeploymentStatus.QUEUED
 
 
-@patch("preview_agent.orchestrator.HEALTH_CHECK_DELAY", 0)
-@patch("preview_agent.orchestrator.HEALTH_CHECK_INTERVAL", 0)
+@patch("sweat_review.orchestrator.HEALTH_CHECK_DELAY", 0)
+@patch("sweat_review.orchestrator.HEALTH_CHECK_INTERVAL", 0)
 async def test_health_check_passes(orchestrator: Orchestrator, tmp_path: Path) -> None:
     ps_output = _health_check_ps_output()
 
@@ -218,8 +218,8 @@ async def test_health_check_passes(orchestrator: Orchestrator, tmp_path: Path) -
     assert result is True
 
 
-@patch("preview_agent.orchestrator.HEALTH_CHECK_DELAY", 0)
-@patch("preview_agent.orchestrator.HEALTH_CHECK_INTERVAL", 0)
+@patch("sweat_review.orchestrator.HEALTH_CHECK_DELAY", 0)
+@patch("sweat_review.orchestrator.HEALTH_CHECK_INTERVAL", 0)
 async def test_health_check_fails_after_retries(orchestrator: Orchestrator, tmp_path: Path) -> None:
     bad_output = json.dumps({"Service": "backend", "State": "exited"}).encode()
 
@@ -230,12 +230,12 @@ async def test_health_check_fails_after_retries(orchestrator: Orchestrator, tmp_
     assert result is False
 
 
-@patch("preview_agent.orchestrator.check_resources")
+@patch("sweat_review.orchestrator.check_resources")
 async def test_deploy_fails_on_low_resources(
     mock_resources: MagicMock,
     orchestrator: Orchestrator, state_store: StateStore, mock_github: AsyncMock,
 ) -> None:
-    from preview_agent.resources import InsufficientResourcesError
+    from sweat_review.resources import InsufficientResourcesError
 
     mock_resources.side_effect = InsufficientResourcesError("Low disk space: 0.5 GB free")
 

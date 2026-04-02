@@ -4,10 +4,10 @@ import asyncio
 import contextlib
 import logging
 
-from preview_agent.config import Settings
-from preview_agent.github_client import GitHubClient
-from preview_agent.orchestrator import Orchestrator
-from preview_agent.state import DeploymentStatus, StateStore
+from sweat_review.config import Settings
+from sweat_review.github_client import GitHubClient
+from sweat_review.orchestrator import Orchestrator
+from sweat_review.state import DeploymentStatus, StateStore
 
 logger = logging.getLogger(__name__)
 

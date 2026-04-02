@@ -1,6 +1,6 @@
 import pytest
 
-from preview_agent.state import DeploymentStatus, StateStore
+from sweat_review.state import DeploymentStatus, StateStore
 
 
 pytestmark = pytest.mark.asyncio

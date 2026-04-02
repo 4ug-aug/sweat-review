@@ -3,8 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "preview-agent"
+name = "sweat-review"
 version = "0.1.0"
+description = "Self-hosted ephemeral preview environments for GitHub PRs"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
@@ -14,6 +15,7 @@ dependencies = [
     "pydantic-settings>=2.7",
     "python-dotenv>=1.0",
     "aiosqlite>=0.20",
+    "platformdirs>=4.0",
 ]
 
 [dependency-groups]
@@ -25,7 +27,10 @@ dev = [
 ]
 
 [project.scripts]
-preview-agent = "preview_agent.main:cli"
+sweat-review = "sweat_review.main:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sweat_review"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

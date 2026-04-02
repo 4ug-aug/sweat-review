@@ -4,7 +4,7 @@ import httpx
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from preview_agent.github_client import GitHubClient
+from sweat_review.github_client import GitHubClient
 
 
 def _mock_response(status_code: int, json_data=None, headers=None):

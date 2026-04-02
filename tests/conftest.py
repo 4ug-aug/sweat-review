@@ -3,9 +3,9 @@ from pathlib import Path
 import pytest
 import pytest_asyncio
 
-from preview_agent.config import Settings
-from preview_agent.compose import ComposeRenderer
-from preview_agent.state import StateStore
+from sweat_review.config import Settings
+from sweat_review.compose import ComposeRenderer
+from sweat_review.state import StateStore
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 

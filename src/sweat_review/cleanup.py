@@ -6,10 +6,10 @@ import json
 import logging
 from pathlib import Path
 
-from preview_agent.config import Settings
-from preview_agent.github_client import GitHubClient
-from preview_agent.orchestrator import Orchestrator, run_subprocess
-from preview_agent.state import StateStore
+from sweat_review.config import Settings
+from sweat_review.github_client import GitHubClient
+from sweat_review.orchestrator import Orchestrator, run_subprocess
+from sweat_review.state import StateStore
 
 logger = logging.getLogger(__name__)
 

@@ -8,10 +8,10 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from preview_agent.compose import ComposeRenderer
-from preview_agent.config import Settings
-from preview_agent.dashboard import relative_time, render_dashboard, router as dashboard_router
-from preview_agent.state import Deployment, DeploymentStatus, StateStore
+from sweat_review.compose import ComposeRenderer
+from sweat_review.config import Settings
+from sweat_review.dashboard import relative_time, render_dashboard, router as dashboard_router
+from sweat_review.state import Deployment, DeploymentStatus, StateStore
 
 
 @pytest.fixture

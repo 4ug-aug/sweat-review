@@ -7,11 +7,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from preview_agent.cleanup import CleanupService
-from preview_agent.config import Settings
-from preview_agent.github_client import GitHubClient
-from preview_agent.orchestrator import Orchestrator
-from preview_agent.state import DeploymentStatus, StateStore
+from sweat_review.cleanup import CleanupService
+from sweat_review.config import Settings
+from sweat_review.github_client import GitHubClient
+from sweat_review.orchestrator import Orchestrator
+from sweat_review.state import DeploymentStatus, StateStore
 
 
 @pytest.fixture
@@ -97,7 +97,7 @@ async def test_cleanup_orphans_tears_down_unknown_project(
         {"Name": "myapp", "Status": "running(1)"},
     ])
 
-    with patch("preview_agent.cleanup.run_subprocess", new_callable=AsyncMock) as mock_run:
+    with patch("sweat_review.cleanup.run_subprocess", new_callable=AsyncMock) as mock_run:
         mock_run.return_value = (0, docker_ls_output, "")
         cleaned = await cleanup.cleanup_orphans()
 
@@ -111,7 +111,7 @@ async def test_cleanup_orphans_ignores_known_project(
     await state_store.upsert(5, "main", "sha", DeploymentStatus.RUNNING, "url5")
     docker_ls_output = json.dumps([{"Name": "pr-5", "Status": "running(1)"}])
 
-    with patch("preview_agent.cleanup.run_subprocess", new_callable=AsyncMock) as mock_run:
+    with patch("sweat_review.cleanup.run_subprocess", new_callable=AsyncMock) as mock_run:
         mock_run.return_value = (0, docker_ls_output, "")
         cleaned = await cleanup.cleanup_orphans()
 

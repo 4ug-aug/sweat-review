@@ -7,12 +7,12 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from fastapi import FastAPI
 
-from preview_agent.compose import ComposeRenderer
-from preview_agent.config import Settings
-from preview_agent.github_client import GitHubClient
-from preview_agent.health import router as health_router
-from preview_agent.orchestrator import Orchestrator
-from preview_agent.state import DeploymentStatus, StateStore
+from sweat_review.compose import ComposeRenderer
+from sweat_review.config import Settings
+from sweat_review.github_client import GitHubClient
+from sweat_review.health import router as health_router
+from sweat_review.orchestrator import Orchestrator
+from sweat_review.state import DeploymentStatus, StateStore
 
 
 @pytest.fixture

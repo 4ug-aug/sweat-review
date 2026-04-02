@@ -27,7 +27,7 @@ import React from 'react'
 const GITHUB_REPO_URL = 'https://github.com/4ug-aug/sweat-review'
 
 const TERMINAL_LINES = [
-  { prefix: '$', text: 'uv run preview-agent', color: 'text-muted-foreground' },
+  { prefix: '$', text: 'sweat-review start', color: 'text-muted-foreground' },
   { prefix: '●', text: 'Polling github.com/acme/app...', color: 'text-primary' },
   { prefix: '✓', text: 'PR #42 detected — cloning branch feature/auth', color: 'text-green-500' },
   { prefix: '✓', text: 'docker compose up -d --build', color: 'text-green-500' },
@@ -66,28 +66,15 @@ const AGENT_ITEMS = [
 const QUICK_START_STEPS = [
   {
     number: 1,
-    title: 'Clone & Install',
-    code: `git clone https://github.com/4ug-aug/sweat-review
-cd preview-agent
-uv sync --all-groups`,
+    title: 'Initialize',
+    code: `uvx sweat-review init
+# Prompts for GitHub token, repo, and VPS IP
+# Sets up .env and starts Traefik automatically`,
   },
   {
     number: 2,
-    title: 'Configure',
-    code: `# .env
-GITHUB_TOKEN=ghp_your_token_here
-GITHUB_REPO=your-org/your-repo
-VPS_IP=10.0.1.4`,
-  },
-  {
-    number: 3,
-    title: 'Launch',
-    code: `# Start Traefik (one-time)
-docker network create traefik-public
-docker compose -f traefik/docker-compose.yml up -d
-
-# Start the agent
-uv run preview-agent`,
+    title: 'Start',
+    code: `uvx sweat-review start`,
   },
 ]
 

@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from preview_agent.compose import ComposeRenderer, ComposeValidationError
+from sweat_review.compose import ComposeRenderer, ComposeValidationError
 
 
 class _ComposeLoader(yaml.SafeLoader):

@@ -5,11 +5,11 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from preview_agent.config import Settings
-from preview_agent.github_client import GitHubClient
-from preview_agent.orchestrator import Orchestrator
-from preview_agent.poller import PollerService
-from preview_agent.state import DeploymentStatus, StateStore
+from sweat_review.config import Settings
+from sweat_review.github_client import GitHubClient
+from sweat_review.orchestrator import Orchestrator
+from sweat_review.poller import PollerService
+from sweat_review.state import DeploymentStatus, StateStore
 
 
 @pytest.fixture

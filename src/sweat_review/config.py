@@ -1,7 +1,21 @@
+from __future__ import annotations
+
+from importlib.resources import files as pkg_files
 from pathlib import Path
 
+from platformdirs import user_data_dir
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _default_template_path() -> Path:
+    """Return the path to the bundled Compose override template."""
+    return Path(str(pkg_files("sweat_review").joinpath("data/docker-compose.override.yml.j2")))
+
+
+def _default_data_dir() -> Path:
+    """Return the platform-appropriate data directory for sweat-review."""
+    return Path(user_data_dir("sweat-review"))
 
 
 class Settings(BaseSettings):
@@ -10,14 +24,14 @@ class Settings(BaseSettings):
     github_token: str = Field(description="GitHub PAT with repo scope")
     github_repo: str = Field(description="Target repo as owner/repo")
     vps_ip: str = "127.0.0.1"
-    clone_base_dir: Path = Path("/tmp/preview-agent")
+    clone_base_dir: Path = Field(default_factory=lambda: _default_data_dir() / "repos")
     max_concurrent: int = Field(default=15, gt=0)
     stale_timeout_hours: int = Field(default=48, gt=0)
     poll_interval: int = Field(default=30, gt=0)
-    db_path: Path = Path("preview_agent.db")
+    db_path: Path = Field(default_factory=lambda: _default_data_dir() / "sweat-review.db")
     compose_file: str = "docker-compose.yml"
     target_env_file: Path | None = None
-    template_path: Path = Path("templates/docker-compose.override.yml.j2")
+    template_path: Path = Field(default_factory=_default_template_path)
 
     @field_validator("github_repo")
     @classmethod
