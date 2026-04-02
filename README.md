@@ -7,26 +7,23 @@ subdomains using Traefik, and posts the preview URL as a GitHub PR comment.
 
 ## How it works
 
-```
-  +---------------+
-  | Preview Agent |  Polls GitHub API every 30s
-  +-------+-------+
-          |
-    +-----+------+
-    |            |
- clone repo   post comment
- render override  on the PR
- docker compose
- up -d --build
-    |
-    v
-  +--------+
-  | Traefik |  Shared reverse proxy on port 80
-  +----+----+  Routes by Host header
-       |
-  +----+----+----+
-  |    |    |    |
- pr-1 pr-2 pr-3 ...   Isolated Compose stacks
+```mermaid
+graph TD
+    A["Preview Agent<br/><i>Polls GitHub API every 30s</i>"] --> B["Clone repo & render<br/>Compose override"]
+    A --> C["Post preview URL<br/>comment on PR"]
+    B --> D["docker compose<br/>up -d --build"]
+    D --> T["Traefik<br/><i>Shared reverse proxy on port 80<br/>Routes by Host header</i>"]
+    T --> PR1["pr-1"]
+    T --> PR2["pr-2"]
+    T --> PR3["pr-3"]
+    T --> PR4["..."]
+
+    style A fill:#2563eb,stroke:#1d4ed8,color:#fff
+    style T fill:#7c3aed,stroke:#6d28d9,color:#fff
+    style PR1 fill:#059669,stroke:#047857,color:#fff
+    style PR2 fill:#059669,stroke:#047857,color:#fff
+    style PR3 fill:#059669,stroke:#047857,color:#fff
+    style PR4 fill:#059669,stroke:#047857,color:#fff
 ```
 
 Each PR gets its own fully isolated stack (frontend, backend, nginx, database,
