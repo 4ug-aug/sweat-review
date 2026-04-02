@@ -25,7 +25,7 @@ import React from 'react'
 // STATIC DATA
 // ============================================================================
 
-const GITHUB_REPO_URL = 'https://github.com/augusttollerup/preview-agent'
+const GITHUB_REPO_URL = 'https://github.com/4ug-aug/sweat-review'
 
 const TERMINAL_LINES = [
   { prefix: '$', text: 'uv run preview-agent', color: 'text-muted-foreground' },
@@ -68,7 +68,7 @@ const QUICK_START_STEPS = [
   {
     number: 1,
     title: 'Clone & Install',
-    code: `git clone https://github.com/augusttollerup/preview-agent
+    code: `git clone https://github.com/4ug-aug/sweat-review
 cd preview-agent
 uv sync --all-groups`,
   },
