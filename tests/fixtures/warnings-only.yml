@@ -1,0 +1,20 @@
+services:
+  backend:
+    image: myapp:latest
+    expose:
+      - "8000"
+    environment:
+      BASE_URL: https://example.com
+    volumes:
+      - /var/log/app:/app/logs
+    cap_add:
+      - SYS_ADMIN
+
+  db:
+    image: postgres:16
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
+    external: true

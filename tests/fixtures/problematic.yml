@@ -1,0 +1,39 @@
+services:
+  nginx:
+    image: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    container_name: my-nginx
+    network_mode: host
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    container_name: my-backend
+    privileged: true
+    environment:
+      VIRTUAL_HOST: example.com
+      DATABASE_URL: postgres://db:5432/app
+    env_file: .env
+    volumes:
+      - /var/data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
+    external: true
+
+networks:
+  my-network:
+    external: true

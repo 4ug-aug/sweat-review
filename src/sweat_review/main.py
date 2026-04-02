@@ -167,6 +167,32 @@ def run_start(host: str, port: int) -> None:
 
 
 # ============================================================================
+# CLI: check
+# ============================================================================
+
+
+def run_check(file: str, fmt: str) -> None:
+    from sweat_review.compose_check.checker import check_compose_file
+    from sweat_review.compose_check.models import Severity
+    from sweat_review.compose_check.output import format_json, format_text
+
+    path = Path(file)
+    if not path.exists():
+        print(f"  Error: {file} not found.", file=sys.stderr)
+        sys.exit(1)
+
+    issues = check_compose_file(path)
+
+    if fmt == "json":
+        print(format_json(issues))
+    else:
+        print(format_text(issues, file))
+
+    if any(i.severity == Severity.FAIL for i in issues):
+        sys.exit(1)
+
+
+# ============================================================================
 # CLI entry point
 # ============================================================================
 
@@ -194,11 +220,25 @@ def cli() -> None:
         "--port", type=int, default=8000, help="Bind port (default: 8000)"
     )
 
+    check_p = sub.add_parser(
+        "check", help="Check a compose file for preview compatibility"
+    )
+    check_p.add_argument(
+        "-f", "--file", default="docker-compose.yml",
+        help="Compose file to check (default: docker-compose.yml)",
+    )
+    check_p.add_argument(
+        "--format", choices=["text", "json"], default="text",
+        help="Output format (default: text)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "init":
         run_init(args.dir)
     elif args.command == "start":
         run_start(args.host, args.port)
+    elif args.command == "check":
+        run_check(args.file, args.format)
     else:
         parser.print_help()

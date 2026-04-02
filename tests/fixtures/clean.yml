@@ -1,0 +1,27 @@
+services:
+  nginx:
+    image: nginx
+    expose:
+      - "80"
+
+  backend:
+    image: myapp:latest
+    expose:
+      - "8000"
+
+  db:
+    image: postgres:16
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+
+networks:
+  traefik-public:
+    external: true
