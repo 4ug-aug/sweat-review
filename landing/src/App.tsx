@@ -305,19 +305,18 @@ const HeroSection = () => {
             </Badge>
 
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold leading-[1.05] tracking-tight text-foreground mb-8">
-              Self-Hosted Preview{' '}
+              PR Previews for{' '}
               <br className="hidden md:block" />
-              Environments{' '}
+              Docker Compose{' '}
               <br className="hidden md:block" />
               <span className="bg-gradient-to-r from-primary via-chart-1 to-chart-4 bg-clip-text text-transparent">
-                on Autopilot.
+                on Your Server.
               </span>
             </h1>
 
             <p className="text-xl md:text-2xl text-muted-foreground mb-10 max-w-xl">
-              Open a PR. Get a preview URL. Close it, it's gone.
-              Runs on your own infrastructure —{' '}
-              <span className="text-primary">no SaaS, no vendor lock-in, no surprises on your bill.</span>
+              Open a PR, get a preview URL. Close it, it's gone.{' '}
+              <span className="text-primary">No PaaS, no webhooks, no CI pipeline — just your VPS and a compose file.</span>
             </p>
 
             <div className="flex flex-wrap gap-4 mb-12">
@@ -362,6 +361,41 @@ const HeroSection = () => {
 
 
 // ============================================================================
+// BUILT FOR SECTION
+// ============================================================================
+
+const BUILT_FOR_ITEMS = [
+  'You deploy with Docker Compose and want preview URLs per PR',
+  'You run on a single VPS, mini PC, or home server — not Kubernetes',
+  'You want previews without adopting a PaaS or configuring CI pipelines',
+  'You use AI agents to open PRs and need to review what they built',
+]
+
+const BuiltForSection = () => (
+  <section id="built-for" className="py-14 px-6">
+    <div className="max-w-2xl mx-auto">
+      <h2 className="text-2xl font-extrabold text-foreground tracking-tight mb-2 text-center">
+        Built For
+      </h2>
+      <p className="text-muted-foreground text-sm mb-8 text-center">
+        SWEAT Review is not a PaaS. It does one thing for a specific kind of setup.
+      </p>
+      <div className="space-y-3">
+        {BUILT_FOR_ITEMS.map((item, i) => (
+          <div key={i} className="flex items-start gap-3">
+            <div className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 border border-primary/20 text-primary shrink-0 mt-0.5">
+              <HugeiconsIcon icon={Tick02Icon} className="w-3 h-3" />
+            </div>
+            <span className="text-sm text-foreground/90">{item}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+)
+
+
+// ============================================================================
 // HOW IT WORKS SECTION
 // ============================================================================
 
@@ -375,6 +409,7 @@ const MockEnvFile = () => (
         { key: 'GITHUB_TOKEN', value: 'ghp_••••••' },
         { key: 'GITHUB_REPO', value: 'acme/app' },
         { key: 'VPS_IP', value: '10.0.1.4' },
+        { key: 'TRIGGER_LABEL', value: 'preview' },
       ].map((line) => (
         <div key={line.key}>
           <span className="text-gray-500">{line.key}</span>
@@ -436,7 +471,7 @@ const HowItWorksSection = () => {
           How It Works
         </h2>
         <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-          No webhooks. No CI. No DNS. Just PRs.
+          Polls the GitHub API — no webhooks, no CI, no DNS config. Works behind NAT and firewalls.
         </p>
       </div>
       <BentoGrid>
@@ -477,7 +512,7 @@ const HowItWorksSection = () => {
 
         <BentoCell
           title="Your Machine, Your Rules"
-          description="No SaaS dashboard. No vendor API keys. Three env vars on your own VPS and you're live."
+          description="No SaaS dashboard. No vendor API keys. Gate previews to a label or deploy all PRs — your call."
         >
           <MockEnvFile />
         </BentoCell>
@@ -716,10 +751,10 @@ const ComparisonSection = () => {
     <section id="comparison">
       <div className="py-14 px-6 text-center border-b border-border">
         <h2 className="text-3xl font-extrabold text-foreground tracking-tight mb-4">
-          How We Compare
+          Different Tools, Different Jobs
         </h2>
         <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-          Not all preview environments are created equal.
+          PaaS platforms do a hundred things. SWEAT Review does one — PR previews for Docker Compose projects on your own server.
         </p>
       </div>
       <div className="overflow-x-auto">
@@ -915,6 +950,8 @@ const App = () => {
         <Header />
         <div className="relative z-10 flex flex-col">
           <HeroSection />
+          <GrillSeparator />
+          <BuiltForSection />
           <GrillSeparator />
           <HowItWorksSection />
           <GrillSeparator />

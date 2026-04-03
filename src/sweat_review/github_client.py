@@ -89,6 +89,7 @@ class GitHubClient:
                     "number": pr["number"],
                     "branch": pr["head"]["ref"],
                     "sha": pr["head"]["sha"],
+                    "labels": [label["name"] for label in pr.get("labels", [])],
                 }
             )
 
@@ -110,6 +111,7 @@ class GitHubClient:
                             "number": pr["number"],
                             "branch": pr["head"]["ref"],
                             "sha": pr["head"]["sha"],
+                            "labels": [label["name"] for label in pr.get("labels", [])],
                         }
                     )
                 if len(prs) < 100:

@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     poll_interval: int = Field(default=30, gt=0)
     db_path: Path = Field(default_factory=lambda: _default_data_dir() / "sweat-review.db")
     compose_file: str = "docker-compose.yml"
+    trigger_label: str = ""
     target_env_file: Path | None = None
     template_path: Path = Field(default_factory=_default_template_path)
 

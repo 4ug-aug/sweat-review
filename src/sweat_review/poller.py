@@ -67,22 +67,34 @@ class PollerService:
             return
 
         open_pr_map = {pr["number"]: pr for pr in open_prs}
-        open_pr_numbers = set(open_pr_map.keys())
+
+        # Apply label filter if configured
+        trigger_label = self._settings.trigger_label
+        if trigger_label:
+            eligible_pr_map = {
+                num: pr for num, pr in open_pr_map.items()
+                if trigger_label.lower() in [l.lower() for l in pr.get("labels", [])]
+            }
+        else:
+            eligible_pr_map = open_pr_map
+
+        eligible_pr_numbers = set(eligible_pr_map.keys())
 
         # Fetch all deployments from state
         deployments = await self._state.get_all()
         deployment_map = {dep.pr_number: dep for dep in deployments}
 
         logger.info(
-            "Poll: %d open PRs %s, %d tracked deployments %s",
+            "Poll: %d open PRs, %d eligible %s, %d tracked deployments %s",
             len(open_pr_map),
-            sorted(open_pr_map.keys()),
+            len(eligible_pr_map),
+            sorted(eligible_pr_map.keys()),
             len(deployment_map),
             {pr: dep.status.value for pr, dep in deployment_map.items()},
         )
 
         # New or updated PRs
-        for pr_number, pr in open_pr_map.items():
+        for pr_number, pr in eligible_pr_map.items():
             dep = deployment_map.get(pr_number)
 
             if dep is None:
@@ -128,7 +140,7 @@ class PollerService:
 
         # Closed PRs — teardown deployments for PRs no longer open
         for pr_number, dep in deployment_map.items():
-            if pr_number not in open_pr_numbers and dep.status not in SKIP_STATUSES:
+            if pr_number not in eligible_pr_numbers and dep.status not in SKIP_STATUSES:
                 logger.info(
                     "PR #%d no longer open (was %s, sha=%s, updated=%s) — tearing down",
                     pr_number, dep.status.value, dep.commit_sha[:7], dep.updated_at,

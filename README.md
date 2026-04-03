@@ -1,9 +1,16 @@
 # SWEAT Review
 
-Self-hosted ephemeral preview environments for GitHub pull requests.
+PR preview environments for Docker Compose projects, on your own server.
 
-Spins up an isolated ephemeral Docker Compose stack per PR on a VPS, routes traffic via
-subdomains using Traefik, and posts the preview URL as a GitHub PR comment.
+If you have a project that runs with `docker compose up` and you want a unique
+preview URL for each pull request — without adopting a PaaS, configuring
+webhooks, or giving a SaaS vendor access to your code — this is what SWEAT
+Review does. One thing, nothing else.
+
+It polls the GitHub API for open PRs, spins up an isolated Docker Compose stack
+per PR on your VPS, routes traffic via Traefik subdomains, and posts the
+preview URL as a GitHub comment. Optionally gated by a label so only PRs you
+choose get deployed.
 
 ## How it works
 
@@ -90,6 +97,7 @@ to tune additional settings:
 | `STALE_TIMEOUT_HOURS` | Hours before a deployment is considered stale | `48` |
 | `DB_PATH` | Path to the SQLite state database | `<data_dir>/sweat-review.db` |
 | `COMPOSE_FILE` | Name of the Compose file in the target repo | `docker-compose.yml` |
+| `TRIGGER_LABEL` | Only deploy PRs with this label (blank = all PRs) | (none) |
 | `TARGET_ENV_FILE` | Path to an env file to copy into each preview environment | (optional) |
 | `TEMPLATE_PATH` | Path to the Jinja2 override template | `templates/docker-compose.override.yml.j2` |
 
@@ -162,7 +170,7 @@ uv sync --all-groups
 uv run pytest -v
 ```
 
-91 tests covering state store, compose rendering, compose checker, orchestrator,
+97 tests covering state store, compose rendering, compose checker, orchestrator,
 poller, cleanup, resource checks, and integration.
 
 ### Manual test with the sample app
@@ -227,5 +235,5 @@ service name.
 │   ├── backend/                            # Flask API
 │   ├── frontend/                           # Static HTML
 │   └── nginx/                              # Reverse proxy
-└── tests/                                  # 91 tests
+└── tests/                                  # 97 tests
 ```

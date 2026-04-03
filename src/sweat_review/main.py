@@ -101,10 +101,14 @@ def run_init(target_dir: Path) -> None:
         sys.exit(1)
 
     vps_ip = input("  VPS IP [127.0.0.1]: ").strip() or "127.0.0.1"
+    trigger_label = input("  Trigger label (blank = deploy all PRs): ").strip()
 
     # Write .env
     env_path = target_dir / ".env"
-    env_path.write_text(f"GITHUB_TOKEN={token}\nGITHUB_REPO={repo}\nVPS_IP={vps_ip}\n")
+    env_content = f"GITHUB_TOKEN={token}\nGITHUB_REPO={repo}\nVPS_IP={vps_ip}\n"
+    if trigger_label:
+        env_content += f"TRIGGER_LABEL={trigger_label}\n"
+    env_path.write_text(env_content)
     print(f"  ✓ Created {env_path}")
 
     # Write traefik compose

@@ -20,20 +20,20 @@ def _mock_response(status_code: int, json_data=None, headers=None):
 class TestListOpenPrsEtag:
     async def test_first_call_caches_etag(self) -> None:
         client = GitHubClient(token="tok", repo="o/r")
-        pr_data = [{"number": 1, "head": {"ref": "feat", "sha": "abc"}}]
+        pr_data = [{"number": 1, "head": {"ref": "feat", "sha": "abc"}, "labels": [{"name": "preview"}]}]
 
         with patch.object(client._client, "get", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = _mock_response(200, pr_data, {"etag": '"etag1"'})
             result = await client.list_open_prs()
 
         assert len(result) == 1
-        assert result[0] == {"number": 1, "branch": "feat", "sha": "abc"}
+        assert result[0] == {"number": 1, "branch": "feat", "sha": "abc", "labels": ["preview"]}
         assert client._prs_etag == '"etag1"'
 
     async def test_304_returns_cached_data(self) -> None:
         client = GitHubClient(token="tok", repo="o/r")
         client._prs_etag = '"etag1"'
-        client._prs_cache = [{"number": 1, "branch": "feat", "sha": "abc"}]
+        client._prs_cache = [{"number": 1, "branch": "feat", "sha": "abc", "labels": ["preview"]}]
 
         with patch.object(client._client, "get", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = _mock_response(304)
@@ -48,17 +48,38 @@ class TestListOpenPrsEtag:
     async def test_200_updates_cache(self) -> None:
         client = GitHubClient(token="tok", repo="o/r")
         client._prs_etag = '"etag1"'
-        client._prs_cache = [{"number": 1, "branch": "feat", "sha": "abc"}]
+        client._prs_cache = [{"number": 1, "branch": "feat", "sha": "abc", "labels": []}]
 
-        new_data = [{"number": 2, "head": {"ref": "fix", "sha": "def"}}]
+        new_data = [{"number": 2, "head": {"ref": "fix", "sha": "def"}, "labels": []}]
 
         with patch.object(client._client, "get", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = _mock_response(200, new_data, {"etag": '"etag2"'})
             result = await client.list_open_prs()
 
         assert len(result) == 1
-        assert result[0] == {"number": 2, "branch": "fix", "sha": "def"}
+        assert result[0] == {"number": 2, "branch": "fix", "sha": "def", "labels": []}
         assert client._prs_etag == '"etag2"'
+
+    async def test_multiple_labels_extracted(self) -> None:
+        client = GitHubClient(token="tok", repo="o/r")
+        pr_data = [{"number": 1, "head": {"ref": "feat", "sha": "abc"},
+                     "labels": [{"name": "preview"}, {"name": "bug"}]}]
+
+        with patch.object(client._client, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = _mock_response(200, pr_data, {"etag": '"e1"'})
+            result = await client.list_open_prs()
+
+        assert result[0]["labels"] == ["preview", "bug"]
+
+    async def test_missing_labels_defaults_to_empty(self) -> None:
+        client = GitHubClient(token="tok", repo="o/r")
+        pr_data = [{"number": 1, "head": {"ref": "feat", "sha": "abc"}}]
+
+        with patch.object(client._client, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = _mock_response(200, pr_data, {"etag": '"e1"'})
+            result = await client.list_open_prs()
+
+        assert result[0]["labels"] == []
 
 
 class TestIsPrOpenEtag:
