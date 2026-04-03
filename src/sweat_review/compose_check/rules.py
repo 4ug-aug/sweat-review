@@ -25,32 +25,6 @@ _SENSITIVE_CAPS = {"SYS_ADMIN", "NET_ADMIN", "SYS_PTRACE", "ALL"}
 # ---------------------------------------------------------------------------
 
 
-def _port_has_host_binding(port: str | dict) -> bool:
-    """Return True if a port spec binds to a host port."""
-    if isinstance(port, dict):
-        return port.get("published") is not None
-    port_str = str(port)
-    return ":" in port_str
-
-
-def check_hardcoded_ports(name: str, config: dict) -> list[Issue]:
-    """F001: Flag host-bound port mappings."""
-    issues = []
-    for port in config.get("ports", []):
-        if _port_has_host_binding(port):
-            issues.append(Issue(
-                code="F001",
-                severity=Severity.FAIL,
-                service=name,
-                message=f'hardcoded port binding "{port}"',
-                explanation=(
-                    "Multiple instances can't bind the same host port.\n"
-                    "Remove the ports mapping. The preview agent routes traffic via Traefik."
-                ),
-            ))
-    return issues
-
-
 def check_container_name(name: str, config: dict) -> list[Issue]:
     """F002: Flag explicit container_name."""
     if "container_name" in config:

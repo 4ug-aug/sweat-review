@@ -85,10 +85,10 @@ to tune additional settings:
 | `GITHUB_REPO` | Target repository as `owner/repo` | (required) |
 | `VPS_IP` | IP address for preview URLs | `127.0.0.1` |
 | `POLL_INTERVAL` | Seconds between GitHub API polls | `30` |
-| `CLONE_BASE_DIR` | Directory where PR repos are cloned | `/tmp/preview-agent` |
+| `CLONE_BASE_DIR` | Directory where PR repos are cloned | `<data_dir>/repos` |
 | `MAX_CONCURRENT` | Maximum simultaneous preview environments | `15` |
 | `STALE_TIMEOUT_HOURS` | Hours before a deployment is considered stale | `48` |
-| `DB_PATH` | Path to the SQLite state database | `preview_agent.db` |
+| `DB_PATH` | Path to the SQLite state database | `<data_dir>/sweat-review.db` |
 | `COMPOSE_FILE` | Name of the Compose file in the target repo | `docker-compose.yml` |
 | `TARGET_ENV_FILE` | Path to an env file to copy into each preview environment | (optional) |
 | `TEMPLATE_PATH` | Path to the Jinja2 override template | `templates/docker-compose.override.yml.j2` |
@@ -100,7 +100,7 @@ you can't commit it to the repo. Instead, store it on the machine running the
 agent and point to it:
 
 ```bash
-# In your preview-agent .env:
+# In your .env:
 TARGET_ENV_FILE=/path/to/my-project.env
 ```
 
@@ -162,8 +162,8 @@ uv sync --all-groups
 uv run pytest -v
 ```
 
-46 tests covering state store, compose rendering, orchestrator, poller, cleanup,
-resource checks, and integration.
+91 tests covering state store, compose rendering, compose checker, orchestrator,
+poller, cleanup, resource checks, and integration.
 
 ### Manual test with the sample app
 
@@ -175,7 +175,7 @@ without needing a real repo:
 
 # 2. Render an override for "PR 1"
 uv run python -c "
-from preview_agent.compose import ComposeRenderer
+from sweat_review.compose import ComposeRenderer
 from pathlib import Path
 r = ComposeRenderer(Path('templates/docker-compose.override.yml.j2'))
 r.write_override(Path('sample-app'), pr_number=1, vps_ip='127.0.0.1')
@@ -207,7 +207,7 @@ service name.
 ```
 ├── pyproject.toml                          # Package config + CLI entry point
 ├── .env.example                            # Environment variable template
-├── src/preview_agent/
+├── src/sweat_review/
 │   ├── main.py                             # FastAPI app + CLI entry point
 │   ├── config.py                           # Settings loaded from env vars
 │   ├── poller.py                           # Polls GitHub API for PR changes
@@ -217,6 +217,7 @@ service name.
 │   ├── state.py                            # SQLite deployment state tracking
 │   ├── resources.py                        # Disk/memory resource checks
 │   └── cleanup.py                          # Stale + orphan cleanup scheduler
+│   └── compose_check/                      # Compose file linter (check command)
 ├── templates/
 │   └── docker-compose.override.yml.j2      # Per-PR Compose override with Traefik labels
 ├── traefik/
@@ -226,5 +227,5 @@ service name.
 │   ├── backend/                            # Flask API
 │   ├── frontend/                           # Static HTML
 │   └── nginx/                              # Reverse proxy
-└── tests/                                  # 46 tests
+└── tests/                                  # 91 tests
 ```

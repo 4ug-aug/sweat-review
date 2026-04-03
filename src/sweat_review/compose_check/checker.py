@@ -15,7 +15,6 @@ from sweat_review.compose_check.rules import (
     check_env_file,
     check_external_networks,
     check_external_volumes,
-    check_hardcoded_ports,
     check_healthcheck_dependency,
     check_host_network,
     check_privileged,
@@ -46,7 +45,6 @@ def check_compose_file(path: Path) -> list[Issue]:
     for name, config in services.items():
         if not isinstance(config, dict):
             continue
-        issues.extend(check_hardcoded_ports(name, config))
         issues.extend(check_container_name(name, config))
         issues.extend(check_host_network(name, config))
         issues.extend(check_absolute_bind_mounts(name, config))

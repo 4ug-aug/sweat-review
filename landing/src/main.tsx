@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { Analytics } from "@vercel/analytics/next"
 
 // Theme-aware favicon switcher
 function initializeFavicon() {
@@ -36,5 +37,6 @@ createRoot(document.getElementById('root')!).render(
     <TooltipProvider>
       <App />
     </TooltipProvider>
+    <Analytics />
   </StrictMode>,
 )

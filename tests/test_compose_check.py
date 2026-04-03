@@ -17,7 +17,6 @@ from sweat_review.compose_check.rules import (
     check_env_file,
     check_external_networks,
     check_external_volumes,
-    check_hardcoded_ports,
     check_healthcheck_dependency,
     check_host_network,
     check_privileged,
@@ -25,51 +24,6 @@ from sweat_review.compose_check.rules import (
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
-
-
-# ---------------------------------------------------------------------------
-# F001 — Hardcoded port binding
-# ---------------------------------------------------------------------------
-
-
-def test_f001_short_syntax():
-    issues = check_hardcoded_ports("nginx", {"ports": ["80:80"]})
-    assert len(issues) == 1
-    assert issues[0].code == "F001"
-    assert issues[0].severity == Severity.FAIL
-
-
-def test_f001_ip_bound():
-    issues = check_hardcoded_ports("nginx", {"ports": ["127.0.0.1:80:80"]})
-    assert len(issues) == 1
-    assert issues[0].code == "F001"
-
-
-def test_f001_port_range():
-    issues = check_hardcoded_ports("app", {"ports": ["3000-3005:3000-3005"]})
-    assert len(issues) == 1
-    assert issues[0].code == "F001"
-
-
-def test_f001_long_syntax_with_published():
-    issues = check_hardcoded_ports("app", {"ports": [{"target": 80, "published": 80}]})
-    assert len(issues) == 1
-    assert issues[0].code == "F001"
-
-
-def test_f001_long_syntax_no_published():
-    issues = check_hardcoded_ports("app", {"ports": [{"target": 80}]})
-    assert len(issues) == 0
-
-
-def test_f001_container_only():
-    issues = check_hardcoded_ports("app", {"ports": ["80"]})
-    assert len(issues) == 0
-
-
-def test_f001_no_ports():
-    issues = check_hardcoded_ports("app", {})
-    assert len(issues) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -301,7 +255,6 @@ def test_i003_no_extends():
 def test_problematic_compose():
     issues = check_compose_file(FIXTURES / "problematic.yml")
     codes = {i.code for i in issues}
-    assert "F001" in codes
     assert "F002" in codes
     assert "F003" in codes
     assert "F004" in codes
@@ -314,7 +267,7 @@ def test_problematic_compose():
     assert "I002" in codes
 
     fails = [i for i in issues if i.severity == Severity.FAIL]
-    assert len(fails) >= 5
+    assert len(fails) >= 3
 
 
 def test_clean_compose():
