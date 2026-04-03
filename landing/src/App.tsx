@@ -243,6 +243,7 @@ const BentoCell = ({
 
 const Header = () => {
   const navLinks = [
+    { label: 'Built For', href: '#built-for' },
     { label: 'How it Works', href: '#how-it-works' },
     { label: 'Why Self-Hosted', href: '#why-self-hosted' },
     { label: 'Quick Start', href: '#quick-start' },
@@ -305,12 +306,12 @@ const HeroSection = () => {
             </Badge>
 
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold leading-[1.05] tracking-tight text-foreground mb-8">
-              PR Previews for{' '}
+              Self-Hosted Preview{' '}
               <br className="hidden md:block" />
-              Docker Compose{' '}
+              Environments{' '}
               <br className="hidden md:block" />
               <span className="bg-gradient-to-r from-primary via-chart-1 to-chart-4 bg-clip-text text-transparent">
-                on Your Server.
+                on Autopilot.
               </span>
             </h1>
 
@@ -366,23 +367,25 @@ const HeroSection = () => {
 
 const BUILT_FOR_ITEMS = [
   'You deploy with Docker Compose and want preview URLs per PR',
-  'You run on a single VPS, mini PC, or home server — not Kubernetes',
+  'You run on a single VPS, mini PC, or home server - not Kubernetes',
   'You want previews without adopting a PaaS or configuring CI pipelines',
   'You use AI agents to open PRs and need to review what they built',
 ]
 
 const BuiltForSection = () => (
-  <section id="built-for" className="py-14 px-6">
-    <div className="max-w-2xl mx-auto">
-      <h2 className="text-2xl font-extrabold text-foreground tracking-tight mb-2 text-center">
+  <section id="built-for">
+    <div className="py-14 px-6 text-center border-b border-border">
+      <h2 className="text-3xl font-extrabold text-foreground tracking-tight mb-4">
         Built For
       </h2>
-      <p className="text-muted-foreground text-sm mb-8 text-center">
+      <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
         SWEAT Review is not a PaaS. It does one thing for a specific kind of setup.
       </p>
+    </div>
+    <div className="p-6 md:p-10 flex flex-col items-center">
       <div className="space-y-3">
         {BUILT_FOR_ITEMS.map((item, i) => (
-          <div key={i} className="flex items-start gap-3">
+          <div key={i} className="flex items-start gap-3 text-left">
             <div className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 border border-primary/20 text-primary shrink-0 mt-0.5">
               <HugeiconsIcon icon={Tick02Icon} className="w-3 h-3" />
             </div>
